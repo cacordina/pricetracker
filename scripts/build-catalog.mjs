@@ -8,6 +8,7 @@ import { buildCatalog } from './lib/catalog.mjs';
 import { applyRarity } from './lib/rarity.mjs';
 import { fetchIndexes, enrichCatalog } from './lib/tcgcsv.mjs';
 import { applyFrenchNames } from './lib/names.mjs';
+import { remapExpansions } from './lib/remap.mjs';
 
 export const PRODUCTS_URL = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_6.json';
 
@@ -36,6 +37,11 @@ if (values['enrich-only']) {
     only: values.only ? values.only.split(',') : null,
     log: (line) => console.log(line),
   }));
+}
+if (previous?.aliases) catalog.aliases = { ...previous.aliases, ...catalog.aliases };
+const expansions = await readJson(new URL('../overrides/expansions.json', import.meta.url), {});
+for (const [setId, r] of Object.entries(remapExpansions(catalog, productsDoc.products, expansions))) {
+  console.log(`Extension ${setId} → Cardmarket ${expansions[setId]} : ${r.moved} déplacées, ${r.kept} déjà bonnes, ${r.dropped} retirées${r.error ? ` (${r.error})` : ''}`);
 }
 const species = await readJson(new URL('./data/species-fr.json', import.meta.url), {});
 const tracked = [...new Set(catalog.cards.map((c) => c.s))];

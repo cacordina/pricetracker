@@ -177,3 +177,9 @@ export function rangeChange(values) {
   const deltaCents = known.at(-1) - known[0];
   return { deltaCents, pct: round1((deltaCents / known[0]) * 100) };
 }
+
+/** Lignes (collection ou envies) dont l'identifiant Cardmarket a été remplacé dans le catalogue. */
+export function staleIds(rows, aliases) {
+  if (!aliases) return [];
+  return rows.filter((r) => aliases[r.id_product] !== undefined).map((r) => ({ from: r.id_product, to: aliases[r.id_product] }));
+}

@@ -3,10 +3,11 @@ import { loadHistories } from '../lib/data.js';
 import { COL, collectionValue, collectionSeries, formatEuro, formatPct, rangeChange, sliceRange } from '../lib/metrics.js';
 import { cardImg, chips, onChip, esc, RANGES, loadPrefs, savePrefs, storeProblem } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
+import { staleBanner, wireStale } from '../lib/migrate.js';
 
 const SORTS = [{ value: 'value', label: 'Par valeur' }, { value: 'change', label: 'Par variation' }];
 
-export async function render(root, { catalog, snapshot, store }) {
+export async function render(root, { catalog, snapshot, store, refresh }) {
   let holdings;
   try {
     holdings = await store.listHoldings();
@@ -45,6 +46,7 @@ export async function render(root, { catalog, snapshot, store }) {
 
     root.innerHTML = `
       <div class="toolbar"><h1>Ma collection</h1><a class="link" href="#/ajout">+ Ajouter des cartes</a></div>
+      ${staleBanner(holdings, catalog.aliases, 'votre collection')}
       <div class="big">${formatEuro(value.totalCents)}</div>
       <div>${change
         ? `<span class="${change.deltaCents >= 0 ? 'up' : 'down'}">${change.deltaCents >= 0 ? '▲ +' : '▼ '}${formatEuro(change.deltaCents)} (${formatPct(change.pct)})</span> <span class="muted">sur ${rangeLabel === 'tout' ? 'tout l’historique' : rangeLabel}</span>`
@@ -67,6 +69,7 @@ export async function render(root, { catalog, snapshot, store }) {
     renderPriceChart(root.querySelector('#chart'), { dates: series.dates, series: [{ label: 'Valeur', values: series.values }] }, prefs.range);
     root.querySelector('#set').onchange = (e) => { prefs.set = e.target.value; savePrefs('collection', prefs); draw(); };
     root.querySelector('#signout').onclick = () => store.signOut();
+    wireStale(root, holdings, catalog.aliases, 'holdings', store, refresh);
   }
 
   function tile(item) {

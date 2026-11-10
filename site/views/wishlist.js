@@ -2,8 +2,9 @@
 import { loadHistories } from '../lib/data.js';
 import { COL, wishStatus, sortWishes, formatEuro } from '../lib/metrics.js';
 import { cardRow, cardImg, esc, storeProblem } from '../lib/ui.js';
+import { staleBanner, wireStale } from '../lib/migrate.js';
 
-export async function render(root, { catalog, snapshot, store }) {
+export async function render(root, { catalog, snapshot, store, refresh }) {
   let wishes;
   try {
     wishes = await store.listWishes();
@@ -29,10 +30,12 @@ export async function render(root, { catalog, snapshot, store }) {
 
   root.innerHTML = `
     <h1>Mes envies</h1>
+    ${staleBanner(wishes, catalog.aliases, 'vos envies')}
     <div class="muted">${under
       ? `${under} carte${under > 1 ? 's' : ''} sous votre prix cible`
       : 'Aucune carte sous votre prix cible pour l’instant'}</div>
     ${items.map(line).join('')}`;
+  wireStale(root, wishes, catalog.aliases, 'wishes', store, refresh);
 
   function line({ wish, card, row, status }) {
     if (!card) {

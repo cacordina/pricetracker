@@ -159,3 +159,10 @@ test('displayName : nom français en priorité ; recherche par nom français', (
   assert.equal(m.searchCards(cat, 'nymphali')[0].id, 1);
   assert.equal(m.searchCards(cat, 'sylveon')[0].id, 1);
 });
+
+test('staleIds : lignes dont l’identifiant a été remplacé dans le catalogue', () => {
+  const aliases = { 10: 20, 11: 21 };
+  assert.deepEqual(m.staleIds([{ id_product: 10, qty: 2 }, { id_product: 20, qty: 1 }, { id_product: 5, qty: 1 }], aliases), [{ from: 10, to: 20 }]);
+  assert.deepEqual(m.staleIds([{ id_product: 5 }], aliases), []);
+  assert.deepEqual(m.staleIds([{ id_product: 10 }], undefined), []);
+});
