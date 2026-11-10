@@ -186,3 +186,20 @@ test('complétion : part des cartes d’une rareté possédées, au total et par
   assert.deepEqual([both.owned, both.total, both.sets.find((s) => s.set === 'A').owned], [4, 7, 2]);
   assert.deepEqual(m.completion([], { sets: {}, cards: [] }, ['AR']), { owned: 0, total: 0, pct: 0, sets: [] });
 });
+
+test('album : toutes les cartes d’une rareté, par extension, avec l’état possédé', () => {
+  const cat = { sets: { A: { name: 'Alpha', date: '2026-01-01' }, B: { name: 'Beta', date: '2026-06-01' } }, cards: [
+    { id: 2, s: 'A', n: '10', r: 'AR' }, { id: 1, s: 'A', n: '9', r: 'AR' }, { id: 3, s: 'A', n: '11', r: 'SAR' },
+    { id: 5, s: 'B', n: '1', r: 'AR' }, { id: 6, s: 'B', n: '2', r: 'regular' },
+  ] };
+  const holdings = [{ id_product: 1, qty: 2 }];
+  const all = m.album(cat, holdings, { rarities: ['AR'], show: 'all' });
+  assert.deepEqual(all.map((g) => [g.set, g.owned, g.total, g.cards.map((c) => [c.card.id, c.qty])]), [
+    ['B', 0, 1, [[5, 0]]],
+    ['A', 1, 2, [[1, 2], [2, 0]]],
+  ]);
+  const missing = m.album(cat, holdings, { rarities: ['AR'], show: 'missing' });
+  assert.deepEqual(missing.map((g) => [g.set, g.total, g.cards.map((c) => c.card.id)]), [['B', 1, [5]], ['A', 2, [2]]]);
+  const owned = m.album(cat, holdings, { rarities: ['AR', 'SAR'], show: 'owned' });
+  assert.deepEqual(owned.map((g) => [g.set, g.total, g.cards.map((c) => c.card.id)]), [['A', 3, [1]]]);
+});

@@ -9,12 +9,13 @@ const ROUTES = {
   marche: () => import('./views/market.js'),
   collection: () => import('./views/collection.js'),
   ajout: () => import('./views/quickadd.js'),
+  album: () => import('./views/album.js'),
   envies: () => import('./views/wishlist.js'),
   recherche: () => import('./views/search.js'),
   carte: () => import('./views/card.js'),
   connexion: () => import('./views/login.js'),
 };
-const TAB_OF = { ajout: 'collection', carte: null, connexion: null };
+const TAB_OF = { ajout: 'collection', album: 'collection', carte: null, connexion: null };
 
 const view = document.getElementById('view');
 let renderId = 0;
@@ -36,8 +37,8 @@ async function render() {
     await module.render(root, { catalog, snapshot, store, param: param ? decodeURIComponent(param) : null, refresh: render });
     if (id !== renderId) return;
     view.replaceChildren(root);
-    module.mounted?.(root);
     if (name !== 'ajout') window.scrollTo(0, 0);
+    module.mounted?.(root); // après le retour en haut : un écran peut se placer ailleurs (album)
   } catch (err) {
     if (id !== renderId) return;
     console.error(err);

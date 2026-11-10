@@ -206,3 +206,26 @@ export function completion(holdings, catalog, rarities) {
   const total = sets.reduce((n, e) => n + e.total, 0);
   return { owned, total, pct: pct(owned, total), sets };
 }
+
+/**
+ * Album d'une ou plusieurs raretés : toutes les cartes, groupées par extension (récentes d'abord),
+ * triées par numéro, avec la quantité possédée. `show` = "all" | "missing" | "owned" filtre les cartes
+ * affichées ; `owned` et `total` portent toujours sur l'extension entière. Les groupes vides sont omis.
+ */
+export function album(catalog, holdings, { rarities, show = 'all' }) {
+  const qty = new Map(holdings.map((h) => [h.id_product, h.qty]));
+  const groups = new Map();
+  for (const card of catalog.cards) {
+    if (!rarities.includes(card.r)) continue;
+    if (!groups.has(card.s)) groups.set(card.s, { set: card.s, name: catalog.sets[card.s]?.name ?? card.s, owned: 0, total: 0, cards: [] });
+    const group = groups.get(card.s);
+    const have = qty.get(card.id) ?? 0;
+    group.total += 1;
+    if (have) group.owned += 1;
+    if (show === 'all' || (show === 'owned') === have > 0) group.cards.push({ card, qty: have });
+  }
+  return [...groups.values()]
+    .filter((g) => g.cards.length)
+    .map((g) => ({ ...g, cards: g.cards.sort((a, b) => a.card.n.localeCompare(b.card.n, 'fr', { numeric: true })) }))
+    .sort((a, b) => (catalog.sets[b.set]?.date ?? '').localeCompare(catalog.sets[a.set]?.date ?? '') || a.set.localeCompare(b.set));
+}

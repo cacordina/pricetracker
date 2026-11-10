@@ -54,7 +54,7 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
         ? `<span class="${change.deltaCents >= 0 ? 'up' : 'down'}">${change.deltaCents >= 0 ? '▲ +' : '▼ '}${formatEuro(change.deltaCents)} (${formatPct(change.pct)})</span> <span class="muted">sur ${rangeLabel === 'tout' ? 'tout l’historique' : rangeLabel}</span>`
         : '<span class="muted">Variation disponible dès le deuxième relevé de prix.</span>'}</div>
       <div class="muted">${value.count} carte${value.count > 1 ? 's' : ''}${value.unpriced ? ` · ${value.unpriced} sans prix, non comptée${value.unpriced > 1 ? 's' : ''}` : ''}</div>
-      <div class="muted">Complétion ${esc(prefs.done.join(' + '))} : <b>${done.owned}/${done.total}</b> (${done.pct} %) · <a href="#" id="to-done" style="text-decoration:underline">détail par extension</a></div>
+      <div class="muted">Complétion ${esc(prefs.done.join(' + '))} : <b>${done.owned}/${done.total}</b> (${done.pct} %) · <a href="#" id="to-done" style="text-decoration:underline">détail</a> · <a href="#/album" id="to-album" style="text-decoration:underline">voir toutes les ${esc(prefs.done.join(' + '))}</a></div>
       <div class="chart" id="chart"></div>
       <div class="muted readout" style="min-height:1.4em"></div>
       ${chips('range', RANGES, prefs.range)}
@@ -73,11 +73,11 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
       </div>
       <div class="meter-row total"><div class="line"><b>Toutes les extensions</b><span>${done.owned}/${done.total} · ${done.pct} %</span></div>
         <div class="meter" role="img" aria-label="${done.pct} % complété"><i style="width:${done.pct}%"></i></div></div>
-      ${doneSets.map((e) => `<a class="meter-row" href="#/ajout" data-set="${esc(e.set)}">
+      ${doneSets.map((e) => `<a class="meter-row" href="#/album/${encodeURIComponent(e.set)}">
         <div class="line"><span>${esc(e.set)} <span class="muted">${esc(e.name)}</span></span><span>${e.owned}/${e.total} · ${e.pct} %${e.owned === e.total ? ' ✓' : ''}</span></div>
         <div class="meter" role="img" aria-label="${e.pct} % complété"><i style="width:${e.pct}%"></i></div></a>`).join('')}
       <p style="text-align:center"><button type="button" class="link" id="done-all">${prefs.doneAll ? 'Seulement les extensions commencées' : `Voir les ${done.sets.length} extensions`}</button></p>
-      <p class="muted">Cartes distinctes possédées parmi celles classées ${esc(prefs.done.join(' ou '))} ; les doublons ne comptent qu’une fois. Touchez une extension pour y cocher vos cartes.</p>
+      <p class="muted">Cartes distinctes possédées parmi celles classées ${esc(prefs.done.join(' ou '))} ; les doublons ne comptent qu’une fois. Touchez une extension pour voir toutes ses cartes, possédées ou non.</p>
       <p style="text-align:center;margin-top:22px"><button type="button" class="link" id="signout">Se déconnecter</button></p>`;
 
     renderPriceChart(root.querySelector('#chart'), { dates: series.dates, series: [{ label: 'Valeur', values: series.values }] }, prefs.range);
@@ -85,9 +85,9 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     root.querySelector('#signout').onclick = () => store.signOut();
     root.querySelector('#to-done').onclick = (e) => { e.preventDefault(); root.querySelector('#done').scrollIntoView({ behavior: 'smooth' }); };
     root.querySelector('#done-all').onclick = () => { prefs.doneAll = !prefs.doneAll; savePrefs('collection', prefs); draw(); root.querySelector('#done').scrollIntoView(); };
-    for (const row of root.querySelectorAll('a.meter-row')) {
-      // ouvre la saisie rapide directement sur cette extension, filtrée sur les cartes rares
-      row.onclick = () => savePrefs('quickadd', { set: row.dataset.set, only: 'rare' });
+    // l'album s'ouvre sur les mêmes raretés que la complétion affichée ici
+    for (const link of root.querySelectorAll('a.meter-row, #to-album')) {
+      link.addEventListener('click', () => savePrefs('album', { ...loadPrefs('album', { show: 'all' }), rarities: prefs.done }));
     }
     wireStale(root, holdings, catalog.aliases, 'holdings', store, refresh);
   }
