@@ -1,0 +1,73 @@
+name: Mise à jour quotidienne
+
+on:
+  schedule:
+    - cron: '17 5 * * *'    # Cardmarket publie pendant la nuit ; second passage en rattrapage
+    - cron: '17 11 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['site/**']
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test
+
+      - name: Ajouter les prix du jour
+        if: github.event_name != 'push'
+        run: node scripts/ingest.mjs --data data
+
+      - name: Enregistrer les données
+        if: github.event_name != 'push'
+        working-directory: data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Rien de nouveau."
+          else
+            git commit -q -m "données du $(node -p "require('./snapshot.json').date")"
+            git push
+          fi
+
+      - name: Assembler le site
+        run: |
+          mkdir -p _site/data
+          cp -R site/. _site/
+          cp data/catalog.json data/snapshot.json _site/data/
+          cp -R data/history _site/data/history
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Garder le projet Supabase actif
+        if: vars.SUPABASE_URL != ''
+        continue-on-error: true
+        run: |
+          curl -sS -m 20 -o /dev/null -w "auth %{http_code}\n" "${{ vars.SUPABASE_URL }}/auth/v1/health" -H "apikey: ${{ vars.SUPABASE_KEY }}"
+          curl -sS -m 20 -o /dev/null -w "rest %{http_code}\n" "${{ vars.SUPABASE_URL }}/rest/v1/holdings?select=id_product&limit=1" -H "apikey: ${{ vars.SUPABASE_KEY }}"
