@@ -22,10 +22,16 @@ export function formatPct(value) {
 export const historyFile = (setId) =>
   `${String(setId).replace(/[^A-Za-z0-9_-]/g, (c) => `_${c.charCodeAt(0).toString(16)}`)}.json`;
 
-export function imageUrl(card, sets, quality = 'low') {
+/** Adresses d'image possibles, par ordre de préférence : TCGdex, puis l'image de secours TCGplayer. */
+export function imageUrls(card, sets, quality = 'low') {
+  const urls = [];
   const base = sets?.[card.s]?.img;
-  return base ? `${base}/${card.n}/${quality}.webp` : null;
+  if (base) urls.push(`${base}/${card.n}/${quality}.webp`);
+  if (card.g) urls.push(`https://tcgplayer-cdn.tcgplayer.com/product/${card.g}_${quality === 'high' ? 'in_1000x1000' : '200w'}.jpg`);
+  return urls;
 }
+
+export const imageUrl = (card, sets, quality = 'low') => imageUrls(card, sets, quality)[0] ?? null;
 
 export const cardmarketUrl = (idProduct) => `https://www.cardmarket.com/en/Pokemon/Products?idProduct=${idProduct}`;
 
@@ -40,7 +46,7 @@ export function searchCards(catalog, query, limit = 60) {
   for (const card of catalog.cards) {
     let hay = haystacks.get(card);
     if (!hay) {
-      hay = normalize(`${card.ja} ${card.en ?? ''} ${card.s} ${card.n} ${catalog.sets[card.s]?.name ?? ''}`);
+      hay = normalize(`${card.ja} ${card.fr ?? ''} ${card.en ?? ''} ${card.s} ${card.n} ${catalog.sets[card.s]?.name ?? ''}`);
       haystacks.set(card, hay);
     }
     if (words.every((w) => hay.includes(w))) {
@@ -145,8 +151,9 @@ export function sortWishes(items) {
     rank(a.status) - rank(b.status) || (a.status.gapCents ?? 0) - (b.status.gapCents ?? 0));
 }
 
-/** Nom affiché : nom Cardmarket sans la liste d'attaques entre crochets, sinon nom japonais. */
+/** Nom affiché : nom français, sinon nom Cardmarket sans la liste d'attaques, sinon nom japonais. */
 export function displayName(card) {
+  if (card.fr) return card.fr;
   const en = card.en ? card.en.replace(/\s*\[.*\]\s*$/, '').trim() : '';
   return en || card.ja;
 }

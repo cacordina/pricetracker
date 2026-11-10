@@ -6,10 +6,12 @@ import { parseArgs } from 'node:util';
 import { createClient } from './lib/tcgdex.mjs';
 import { buildCatalog } from './lib/catalog.mjs';
 import { applyRarity } from './lib/rarity.mjs';
+import { fetchIndexes, enrichCatalog } from './lib/tcgcsv.mjs';
+import { applyFrenchNames } from './lib/names.mjs';
 
 export const PRODUCTS_URL = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_6.json';
 
-const { values } = parseArgs({ options: { out: { type: 'string', default: 'data' }, only: { type: 'string' }, products: { type: 'string' } } });
+const { values } = parseArgs({ options: { out: { type: 'string', default: 'data' }, only: { type: 'string' }, products: { type: 'string' }, 'enrich-only': { type: 'boolean', default: false } } });
 const readJson = async (file, fallback) => { try { return JSON.parse(await readFile(file, 'utf8')); } catch { return fallback; } };
 
 const productsDoc = values.products
@@ -21,11 +23,24 @@ const previous = await readJson(join(values.out, 'catalog.json'), null);
 const overrides = await readJson(new URL('../overrides/rarity.json', import.meta.url), {});
 const client = createClient({ cacheDir: '.cache/tcgdex' });
 
-const { catalog, coverage, errors } = await buildCatalog({
-  client, products: productsDoc.products, previous,
-  only: values.only ? values.only.split(',') : null,
-  log: (line) => console.log(line),
-});
+// --enrich-only : ne réinterroge pas TCGdex, complète seulement le catalogue existant (images, raretés, noms).
+let catalog, coverage = {}, errors = [];
+if (values['enrich-only']) {
+  if (!previous) throw new Error('--enrich-only demande un catalogue existant');
+  catalog = structuredClone(previous);
+  const enById = new Map(productsDoc.products.map((p) => [p.idProduct, p.name]));
+  for (const card of catalog.cards) card.en = enById.get(card.id) ?? card.en ?? null;
+} else {
+  ({ catalog, coverage, errors } = await buildCatalog({
+    client, products: productsDoc.products, previous,
+    only: values.only ? values.only.split(',') : null,
+    log: (line) => console.log(line),
+  }));
+}
+const species = await readJson(new URL('./data/species-fr.json', import.meta.url), {});
+const tracked = [...new Set(catalog.cards.map((c) => c.s))];
+enrichCatalog(catalog, await fetchIndexes(tracked, { log: (line) => console.log(line) }));
+applyFrenchNames(catalog, species);
 applyRarity(catalog, overrides);
 
 if (previous && catalog.cards.length < previous.cards.length * 0.8) {
@@ -43,4 +58,6 @@ const byRarity = Object.groupBy(catalog.cards, (c) => c.r);
 console.log(`\nCouverture de cette exécution : ${linked}/${total} cartes liées à Cardmarket (${total ? Math.round((linked / total) * 100) : 0} %)`);
 console.log(`Catalogue : ${catalog.cards.length} cartes, ${Object.keys(catalog.sets).length} extensions`);
 console.log('Raretés : ' + Object.entries(byRarity).map(([r, l]) => `${r} ${l.length}`).join(', '));
+const withImage = catalog.cards.filter((c) => catalog.sets[c.s]?.img || c.g).length;
+console.log(`Images : ${withImage}/${catalog.cards.length} cartes (dont ${catalog.cards.filter((c) => !catalog.sets[c.s]?.img && c.g).length} par la source de secours) ; noms français : ${catalog.cards.filter((c) => c.fr).length}`);
 if (errors.length) console.log(`Extensions en erreur (données précédentes conservées) : ${errors.join(', ')}`);

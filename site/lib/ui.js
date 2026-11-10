@@ -1,16 +1,30 @@
 // Petits utilitaires d'affichage partagés par les écrans.
-import { imageUrl, displayName, formatEuro, formatPct, RARITY_LABEL } from './metrics.js';
+import { imageUrls, displayName, formatEuro, formatPct, RARITY_LABEL } from './metrics.js';
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
-/** Image d'une carte, avec repli si elle manque. */
+/** Image d'une carte : essaie chaque adresse connue, puis affiche un repli. */
 export function cardImg(card, sets, quality = 'low') {
-  const url = card ? imageUrl(card, sets, quality) : null;
+  const urls = card ? imageUrls(card, sets, quality) : [];
   const label = card ? esc(displayName(card)) : 'Carte inconnue';
-  if (!url) return `<div class="noimg">${label}</div>`;
-  return `<img src="${esc(url)}" alt="${label}" loading="lazy" onerror="this.outerHTML='<div class=&quot;noimg&quot;>Image indisponible</div>'">`;
+  if (!urls.length) return `<div class="noimg">${label}</div>`;
+  return `<img src="${esc(urls[0])}" alt="${label}" loading="lazy" referrerpolicy="no-referrer" data-next="${esc(urls.slice(1).join(' '))}" onerror="imgFallback(this)">`;
 }
+
+// Appelée quand une image ne charge pas : passe à l'adresse suivante, sinon affiche le repli.
+window.imgFallback = (img) => {
+  const [next, ...rest] = (img.dataset.next || '').split(' ').filter(Boolean);
+  if (next) {
+    img.dataset.next = rest.join(' ');
+    img.src = next;
+    return;
+  }
+  const box = document.createElement('div');
+  box.className = 'noimg';
+  box.textContent = img.alt || 'Image indisponible';
+  img.replaceWith(box);
+};
 
 export const rarityTag = (card) => (RARITY_LABEL[card.r] ? ` <span class="muted">${RARITY_LABEL[card.r]}</span>` : '');
 

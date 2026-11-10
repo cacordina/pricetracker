@@ -22,3 +22,14 @@ test('numéro non numérique ou compte officiel absent = unknown', () => {
   assert.equal(cls({ id: 6, n: '010' }, null, {}, {}), 'unknown');
 });
 test('source connue mais numéro illisible = regular', () => assert.equal(cls({ id: 7, n: 'A1' }, 'Promo'), 'regular'));
+
+test('applyRarity : rareté de secours (q2) utilisée quand TCGdex n’en donne pas', async () => {
+  const { applyRarity } = await import('../scripts/lib/rarity.mjs');
+  const catalog = { sets: { A: { official: 187 } }, cards: [
+    { id: 1, s: 'A', n: '212', q: null, q2: 'Special Art Rare' },
+    { id: 2, s: 'A', n: '190', q: 'Illustration rare', q2: 'Super Rare' },
+    { id: 3, s: 'A', n: '191', q: null, q2: 'Art Rare' },
+  ] };
+  applyRarity(catalog, {});
+  assert.deepEqual(catalog.cards.map((c) => c.r), ['SAR', 'AR', 'AR']);
+});

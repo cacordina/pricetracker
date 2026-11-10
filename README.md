@@ -14,6 +14,7 @@ Chaque jour (GitHub Actions)                 Chaque lundi
 
 - **Bibliothèques** : uPlot 1.6.31 et supabase-js 2.45.4 sont copiées dans `site/vendor/`, le site ne dépend d’aucun CDN.
 - **Sources** : les exports publics de Cardmarket (`price_guide_6.json`, `products_singles_6.json`) et l'API TCGdex. Aucune page Cardmarket n'est consultée.
+- **Sources de secours** : le catalogue TCGplayer « Pokémon Japan » (via tcgcsv.com) fournit l'image et la rareté quand TCGdex ne les a pas ; les noms français des Pokémon viennent de la table d'espèces PokeAPI (`scripts/data/species-fr.json`). Les cartes Dresseur gardent leur nom anglais.
 - **Filtre japonais** : une carte est suivie si TCGdex la connaît en japonais avec un identifiant Cardmarket. Tout le reste de l'export est ignoré.
 - **Données** : branche `data` du dépôt — `catalog.json`, `snapshot.json` (prix du jour et variations) et un fichier d'historique par extension (`history/`), prix en centimes.
 - **Collection et envies** : dans Supabase, derrière une connexion. Rien de personnel n'est dans ce dépôt.
@@ -35,7 +36,7 @@ GitHub envoie un e-mail. Le site reste en ligne avec les dernières données val
 
 ## Corriger une rareté
 
-TCGdex ne renseigne pas la rareté de certaines extensions (par exemple SV8a). Leurs cartes hors numérotation officielle apparaissent alors comme « Secrètes » et non AR ou SAR. Pour corriger, ajouter l'identifiant Cardmarket de la carte (visible dans l'adresse de sa fiche sur le site, `#/carte/803325`) dans `overrides/rarity.json` :
+Quand ni TCGdex ni la source de secours ne donnent la rareté d'une carte, elle apparaît comme « Secrète » (hors numérotation officielle) et non AR ou SAR. Pour corriger, ajouter l'identifiant Cardmarket de la carte (visible dans l'adresse de sa fiche sur le site, `#/carte/803325`) dans `overrides/rarity.json` :
 
 ```json
 { "803325": "SAR", "803303": "AR" }

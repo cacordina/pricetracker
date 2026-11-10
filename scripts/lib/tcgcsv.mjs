@@ -1,0 +1,75 @@
+/**
+ * Source de secours : catalogue TCGplayer « Pokémon Japan » (catégorie 85) via tcgcsv.com.
+ * TCGdex n'a ni image ni rareté pour beaucoup d'extensions japonaises récentes ; on y prend
+ * l'identifiant d'image (`g`) et la rareté (`q2`), en associant par extension + numéro de carte.
+ */
+const BASE = 'https://tcgcsv.com/tcgplayer/85';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Clé de numéro commune aux deux sources : "091/063" et "091" → "91" ; "SV-P 12" reste tel quel. */
+export const numberKey = (value) => {
+  const head = String(value ?? '').split('/')[0].trim();
+  return /^\d+$/.test(head) ? String(Number(head)) : head.toLowerCase();
+};
+
+/** Map numéro → { productId, name, rarity } ; à numéro égal, le produit sans variante « (…) » gagne. */
+export function indexProducts(products) {
+  const index = new Map();
+  for (const p of products) {
+    const ext = Object.fromEntries((p.extendedData ?? []).map((e) => [e.name, e.value]));
+    if (!ext.Number) continue;
+    const key = numberKey(ext.Number);
+    const entry = { productId: p.productId, name: p.name, rarity: ext.Rarity ?? null };
+    const current = index.get(key);
+    if (!current || (/\(/.test(current.name) && !/\(/.test(p.name))) index.set(key, entry);
+  }
+  return index;
+}
+
+/** Map setId → groupId, par abréviation insensible à la casse. */
+export function matchGroups(groups, setIds) {
+  const byAbbr = new Map(groups.filter((g) => g.abbreviation).map((g) => [g.abbreviation.toLowerCase(), g.groupId]));
+  const out = new Map();
+  for (const id of setIds) {
+    const groupId = byAbbr.get(id.toLowerCase());
+    if (groupId !== undefined) out.set(id, groupId);
+  }
+  return out;
+}
+
+/** Ajoute `g` (image de secours) et `q2` (rareté de secours) aux cartes ; ne retire jamais une valeur existante. */
+export function enrichCatalog(catalog, indexBySet) {
+  for (const card of catalog.cards) {
+    const hit = indexBySet[card.s]?.get(numberKey(card.n));
+    if (!hit) continue;
+    card.g = hit.productId;
+    if (hit.rarity) card.q2 = hit.rarity;
+  }
+  return catalog;
+}
+
+/** Télécharge les produits des extensions demandées. Une extension en erreur est simplement ignorée. */
+export async function fetchIndexes(setIds, { fetchImpl = fetch, delayMs = 150, log = () => {} } = {}) {
+  const get = async (path) => {
+    const res = await fetchImpl(`${BASE}${path}`, { headers: { 'user-agent': 'jp-card-price-tracker' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()).results ?? [];
+  };
+  const out = {};
+  let groups;
+  try {
+    groups = matchGroups(await get('/groups'), setIds);
+  } catch (err) {
+    log(`tcgcsv indisponible (${err.message}) : images et raretés de secours inchangées`);
+    return out;
+  }
+  for (const [setId, groupId] of groups) {
+    try {
+      out[setId] = indexProducts(await get(`/${groupId}/products`));
+    } catch (err) {
+      log(`tcgcsv ${setId}: ${err.message}`);
+    }
+    await sleep(delayMs);
+  }
+  return out;
+}

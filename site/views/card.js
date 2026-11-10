@@ -24,7 +24,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
       ${cardImg(card, catalog.sets, 'high')}
       <div class="info">
         <h1 style="margin-bottom:2px">${esc(displayName(card))}</h1>
-        <div class="muted">${esc(card.ja)}</div>
+        <div class="muted">${esc(card.ja)}${card.fr && card.en ? ` · ${esc(card.en.replace(/\s*\[.*\]\s*$/, ""))}` : ""}</div>
         <div class="muted">${esc(set?.name ?? card.s)} · ${esc(card.s)} ${esc(card.n)}${RARITY_LABEL[card.r] ? ` · ${RARITY_LABEL[card.r]}` : ''}</div>
         ${priced ? `
           <div class="big" style="margin-top:10px">${formatEuro(row[COL.trend])}</div>

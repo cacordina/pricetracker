@@ -144,3 +144,17 @@ test('rangeChange : variation entre le premier et le dernier point non nuls', ()
   assert.equal(m.rangeChange([null, 200]), null);
   assert.equal(m.rangeChange([]), null);
 });
+
+test('image : TCGdex d’abord, sinon image de secours TCGplayer', () => {
+  const sets = { A: { img: 'https://assets.tcgdex.net/ja/SV/A' }, B: { img: null } };
+  assert.deepEqual(m.imageUrls({ s: 'A', n: '001', g: 55 }, sets), ['https://assets.tcgdex.net/ja/SV/A/001/low.webp', 'https://tcgplayer-cdn.tcgplayer.com/product/55_200w.jpg']);
+  assert.deepEqual(m.imageUrls({ s: 'B', n: '001', g: 55 }, sets, 'high'), ['https://tcgplayer-cdn.tcgplayer.com/product/55_in_1000x1000.jpg']);
+  assert.deepEqual(m.imageUrls({ s: 'B', n: '001' }, sets), []);
+  assert.equal(m.imageUrl({ s: 'B', n: '001', g: 55 }, sets), 'https://tcgplayer-cdn.tcgplayer.com/product/55_200w.jpg');
+});
+test('displayName : nom français en priorité ; recherche par nom français', () => {
+  assert.equal(m.displayName({ fr: 'Nymphali ex', en: 'Sylveon ex [x]', ja: 'ニンフィアex' }), 'Nymphali ex');
+  const cat = { sets: { A: {} }, cards: [{ id: 1, s: 'A', n: '1', ja: 'ニンフィアex', en: 'Sylveon ex', fr: 'Nymphali ex' }] };
+  assert.equal(m.searchCards(cat, 'nymphali')[0].id, 1);
+  assert.equal(m.searchCards(cat, 'sylveon')[0].id, 1);
+});

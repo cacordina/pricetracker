@@ -1,0 +1,279 @@
+{
+ "results": [
+  {
+   "productId": 602319,
+   "name": "Budew",
+   "cleanName": "Budew",
+   "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/602319_200w.jpg",
+   "categoryId": 85,
+   "groupId": 23909,
+   "url": "https://www.tcgplayer.com/product/602319/pokemon-japan-sv8a-terastal-fest-ex-budew",
+   "modifiedOn": "2025-01-13T18:59:04.543",
+   "imageCount": 1,
+   "presaleInfo": {
+    "isPresale": false,
+    "releasedOn": null,
+    "note": null
+   },
+   "extendedData": [
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Common"
+    },
+    {
+     "name": "Number",
+     "displayName": "Number",
+     "value": "001/187"
+    },
+    {
+     "name": "CardType",
+     "displayName": "Card Type",
+     "value": "Grass"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "30"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "[Fire]x2"
+    },
+    {
+     "name": "Retreat Cost",
+     "displayName": "Retreat Cost",
+     "value": "0"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[0] Itchy Pollen (10) <br>During your opponent's next turn, they can't play any Item cards from their hand."
+    }
+   ]
+  },
+  {
+   "productId": 602320,
+   "name": "Budew (Mirror Foil)",
+   "cleanName": "Budew Mirror Foil",
+   "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/602320_200w.jpg",
+   "categoryId": 85,
+   "groupId": 23909,
+   "url": "https://www.tcgplayer.com/product/602320/pokemon-japan-sv8a-terastal-fest-ex-budew-mirror-foil",
+   "modifiedOn": "2025-01-13T18:59:04.59",
+   "imageCount": 1,
+   "presaleInfo": {
+    "isPresale": false,
+    "releasedOn": null,
+    "note": null
+   },
+   "extendedData": [
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Common"
+    },
+    {
+     "name": "Number",
+     "displayName": "Number",
+     "value": "001/187"
+    },
+    {
+     "name": "CardType",
+     "displayName": "Card Type",
+     "value": "Grass"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "30"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "[Fire]x2"
+    },
+    {
+     "name": "Retreat Cost",
+     "displayName": "Retreat Cost",
+     "value": "0"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[0] Itchy Pollen (10) <br>During your opponent's next turn, they can't play any Item cards from their hand."
+    }
+   ]
+  },
+  {
+   "productId": 602654,
+   "name": "Brassius",
+   "cleanName": "Brassius",
+   "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/602654_200w.jpg",
+   "categoryId": 85,
+   "groupId": 23909,
+   "url": "https://www.tcgplayer.com/product/602654/pokemon-japan-sv8a-terastal-fest-ex-brassius",
+   "modifiedOn": "2025-01-13T18:59:40.3",
+   "imageCount": 1,
+   "presaleInfo": {
+    "isPresale": false,
+    "releasedOn": null,
+    "note": null
+   },
+   "extendedData": [
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Super Rare"
+    },
+    {
+     "name": "Number",
+     "displayName": "Number",
+     "value": "190/187"
+    },
+    {
+     "name": "Description",
+     "displayName": "Description",
+     "value": "Count the cards in your hand, shuffle those cards into your deck, then draw that many cards plus 1."
+    },
+    {
+     "name": "CardType",
+     "displayName": "Card Type",
+     "value": "Trainer - Supporter"
+    }
+   ]
+  },
+  {
+   "productId": 602676,
+   "name": "Sylveon ex - 212/187",
+   "cleanName": "Sylveon ex 212 187",
+   "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/602676_200w.jpg",
+   "categoryId": 85,
+   "groupId": 23909,
+   "url": "https://www.tcgplayer.com/product/602676/pokemon-japan-sv8a-terastal-fest-ex-sylveon-ex-212-187",
+   "modifiedOn": "2025-01-13T18:59:42.94",
+   "imageCount": 1,
+   "presaleInfo": {
+    "isPresale": false,
+    "releasedOn": null,
+    "note": null
+   },
+   "extendedData": [
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Special Art Rare"
+    },
+    {
+     "name": "Number",
+     "displayName": "Number",
+     "value": "212/187"
+    },
+    {
+     "name": "CardType",
+     "displayName": "Card Type",
+     "value": "Psychic"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "270"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Stage 1"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "[Metal] x2"
+    },
+    {
+     "name": "Retreat Cost",
+     "displayName": "Retreat Cost",
+     "value": "2"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[Psychic][Colorless][Colorless] Magical Charm (160)<br> During your opponent's next turn, attacks used by the Defending Pokémon do 100 less damage <em>(before applying Weakness and Resistance)</em>."
+    },
+    {
+     "name": "Attack 2",
+     "displayName": "Attack 2",
+     "value": "[Water][Lightning][Psychic] Angelite<br> Choose 2 of your opponent's Benched Pokémon. Shuffle those Pokémon and all attached cards into your opponent's deck. If 1 of your Pokémon used Angelite during your last turn, this attack can't be used."
+    }
+   ]
+  },
+  {
+   "productId": 604502,
+   "name": "Budew (Master Ball Pattern)",
+   "cleanName": "Budew Master Ball Pattern",
+   "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/604502_200w.jpg",
+   "categoryId": 85,
+   "groupId": 23909,
+   "url": "https://www.tcgplayer.com/product/604502/pokemon-japan-sv8a-terastal-fest-ex-budew-master-ball-pattern",
+   "modifiedOn": "2025-01-13T18:59:46.523",
+   "imageCount": 0,
+   "presaleInfo": {
+    "isPresale": false,
+    "releasedOn": null,
+    "note": null
+   },
+   "extendedData": [
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Common"
+    },
+    {
+     "name": "Number",
+     "displayName": "Number",
+     "value": "001/187"
+    },
+    {
+     "name": "CardType",
+     "displayName": "Card Type",
+     "value": "Grass"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "30"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "[Fire] x2"
+    },
+    {
+     "name": "Retreat Cost",
+     "displayName": "Retreat Cost",
+     "value": "0"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[0] Itchy Pollen (10) <br>During your opponent's next turn, they can't play any Item cards from their hand."
+    }
+   ]
+  }
+ ]
+}

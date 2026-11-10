@@ -4,6 +4,7 @@
  * Source (vérifiée le 2026-11-10) : le champ `rarity` des fiches TCGdex japonaises.
  * Il vaut "Illustration rare" (AR) ou "Special illustration rare" (SAR) pour la plupart
  * des extensions récentes, mais "None" pour ~2 260 cartes (dont toute SV8a).
+ * En secours, la rareté du catalogue TCGplayer Japon (« Art Rare », « Special Art Rare »), champ `q2`.
  * Sans source, on ne devine jamais AR/SAR : la carte est « secret » si son numéro
  * dépasse le compte officiel de l'extension. `overrides/rarity.json` a toujours priorité.
  */
@@ -30,7 +31,14 @@ export function classifyRarity({ card, set, sourceRarity, overrides }) {
 /** Applique le classement à tout un catalogue (modifie et renvoie le catalogue). */
 export function applyRarity(catalog, overrides = {}) {
   for (const card of catalog.cards) {
-    card.r = classifyRarity({ card, set: catalog.sets[card.s], sourceRarity: card.q, overrides });
+    const set = catalog.sets[card.s];
+    let rarity = classifyRarity({ card, set, sourceRarity: card.q, overrides });
+    // Rareté de secours (TCGplayer) : elle ne sert qu'à reconnaître une AR/SAR que TCGdex n'a pas renseignée.
+    if (rarity !== 'AR' && rarity !== 'SAR' && card.q2 && !RARITIES.includes(overrides?.[card.id])) {
+      const second = classifyRarity({ card, set, sourceRarity: card.q2, overrides });
+      if (second === 'AR' || second === 'SAR') rarity = second;
+    }
+    card.r = rarity;
   }
   return catalog;
 }
