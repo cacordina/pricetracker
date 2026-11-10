@@ -69,7 +69,8 @@ export function storeProblem(error) {
     return `<p class="state">Connexion requise pour voir cette page.</p><a class="btn" href="#/connexion">Se connecter</a>`;
   }
   if (error?.code === 'config') {
-    return `<p class="state">La sauvegarde en ligne de la collection n’est pas encore configurée.<br>Le marché, la recherche et les fiches fonctionnent déjà.</p>`;
+    return `<p class="state">${esc(error.message)}<br>Le marché, la recherche et les fiches fonctionnent déjà.</p>
+      <button class="btn sec" onclick="location.reload()">Recharger la page</button>`;
   }
   return `<p class="state">Service indisponible, réessayez.</p><button class="btn sec" onclick="location.reload()">Réessayer</button>`;
 }

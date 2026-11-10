@@ -12,9 +12,15 @@ export class StoreError extends Error {
 
 export const isConfigured = () => Boolean(SUPABASE_URL && SUPABASE_KEY && window.supabase);
 
+/** Dit précisément ce qui manque, pour ne pas confondre un réglage absent et une page périmée. */
+export function configProblem() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return 'La sauvegarde en ligne n’est pas encore configurée. Si elle vient de l’être, rechargez la page.';
+  return 'La bibliothèque de sauvegarde ne s’est pas chargée. Rechargez la page.';
+}
+
 let client = null;
 function sb() {
-  if (!isConfigured()) throw new StoreError('config', 'La sauvegarde en ligne n’est pas encore configurée.');
+  if (!isConfigured()) throw new StoreError('config', configProblem());
   client ??= window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   return client;
 }
@@ -53,7 +59,7 @@ export async function getSession() {
 
 async function requireSession() {
   const session = await getSession();
-  if (!session) throw isConfigured() ? new StoreError('auth', 'Connexion requise.') : new StoreError('config', 'La sauvegarde en ligne n’est pas encore configurée.');
+  if (!session) throw isConfigured() ? new StoreError('auth', 'Connexion requise.') : new StoreError('config', configProblem());
   return session;
 }
 

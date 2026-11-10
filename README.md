@@ -12,6 +12,7 @@ Chaque jour (GitHub Actions)                 Chaque lundi
   publie le site sur GitHub Pages
 ```
 
+- **Bibliothèques** : uPlot 1.6.31 et supabase-js 2.45.4 sont copiées dans `site/vendor/`, le site ne dépend d’aucun CDN.
 - **Sources** : les exports publics de Cardmarket (`price_guide_6.json`, `products_singles_6.json`) et l'API TCGdex. Aucune page Cardmarket n'est consultée.
 - **Filtre japonais** : une carte est suivie si TCGdex la connaît en japonais avec un identifiant Cardmarket. Tout le reste de l'export est ignoré.
 - **Données** : branche `data` du dépôt — `catalog.json`, `snapshot.json` (prix du jour et variations) et un fichier d'historique par extension (`history/`), prix en centimes.
