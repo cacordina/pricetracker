@@ -31,9 +31,9 @@ export function renderPriceChart(el, { dates, series }, range = '30', { height =
   }
 
   const css = getComputedStyle(document.documentElement);
-  const text = css.getPropertyValue('--text').trim();
+  const text = css.getPropertyValue('--chart').trim() || css.getPropertyValue('--text').trim();
   const muted = css.getPropertyValue('--muted').trim();
-  const grid = '#ffffff12';
+  const grid = '#ffffff14';
   const x = shown.map((d) => Date.parse(`${d}T12:00:00Z`) / 1000);
   const y = points.map((vals) => vals.map((v) => (v === null || v === undefined ? null : v / 100)));
 

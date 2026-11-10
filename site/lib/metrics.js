@@ -229,3 +229,13 @@ export function album(catalog, holdings, { rarities, show = 'all' }) {
     .map((g) => ({ ...g, cards: g.cards.sort((a, b) => a.card.n.localeCompare(b.card.n, 'fr', { numeric: true })) }))
     .sort((a, b) => (catalog.sets[b.set]?.date ?? '').localeCompare(catalog.sets[a.set]?.date ?? '') || a.set.localeCompare(b.set));
 }
+
+/** Les `n` cartes possédées au prix unitaire le plus élevé (pour la vitrine de l'accueil). */
+export function topOwned(holdings, catalog, snapshot, n = 3) {
+  return holdings
+    .map((h) => ({ card: catalog.byId.get(h.id_product), trend: snapshot.cards[h.id_product]?.[COL.trend] ?? null }))
+    .filter((x) => x.card && x.trend !== null)
+    .sort((a, b) => b.trend - a.trend)
+    .slice(0, n)
+    .map((x) => x.card);
+}

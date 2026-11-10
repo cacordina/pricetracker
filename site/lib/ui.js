@@ -26,7 +26,13 @@ window.imgFallback = (img) => {
   img.replaceWith(box);
 };
 
-export const rarityTag = (card) => (RARITY_LABEL[card.r] ? ` <span class="muted">${RARITY_LABEL[card.r]}</span>` : '');
+/** Pastille de rareté : AR cerclée d'or, SAR en reflet holo, « secrète » discrète. */
+export function rarityTag(card) {
+  if (card.r === 'AR') return ' <span class="rar ar">AR</span>';
+  if (card.r === 'SAR') return ' <span class="rar sar">SAR</span>';
+  if (card.r === 'secret') return ' <span class="rar sec">Secrète</span>';
+  return '';
+}
 
 export function pctSpan(value) {
   if (value === null || value === undefined) return '<span class="muted">—</span>';
@@ -39,7 +45,7 @@ export function cardRow(card, sets, { trend, change, sub = '', tags = '' }) {
   return `<a class="row" href="#/carte/${card.id}">
     ${cardImg(card, sets)}
     <div class="name"><b>${esc(displayName(card))}</b>
-      <div class="muted">${esc(card.s)} · ${esc(card.n)}${rarityTag(card)} ${tags}</div>
+      <div class="muted">${esc(card.s)} ${esc(card.n)}${rarityTag(card)} ${tags}</div>
       ${sub ? `<div class="muted">${sub}</div>` : ''}</div>
     <div class="price">${formatEuro(trend)}<div>${pctSpan(change)}</div></div>
   </a>`;

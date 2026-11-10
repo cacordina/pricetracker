@@ -23,7 +23,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
     const total = full.reduce((n, g) => n + g.total, 0);
     const label = prefs.rarities.join(' + ');
     root.innerHTML = `
-      <div class="toolbar"><h1>Toutes les ${esc(label)}</h1><a class="link" href="#/collection">← Collection</a></div>
+      <div class="toolbar"><h1>Toutes les ${esc(label)}</h1><a class="link" href="#/collection">Ma collection</a></div>
       <div class="muted">${total} cartes dans ${full.length} extensions${connected ? ` · ${owned} possédées (${total ? Math.round((owned / total) * 100) : 0} %)` : ' · connectez-vous pour voir celles que vous possédez'}</div>
       <div class="chips" data-group="rarities">
         ${['AR', 'SAR'].map((r) => `<button type="button" class="chip${prefs.rarities.includes(r) ? ' on' : ''}" data-value="${r}">${r}</button>`).join('')}

@@ -6,7 +6,7 @@ let lastQuery = '';
 
 export async function render(root, { catalog, snapshot }) {
   root.innerHTML = `
-    <div class="toolbar"><h1>Recherche</h1><a class="link" href="#/scan">Scanner une carte</a></div>
+    <h1>Recherche</h1>
     <input type="search" id="q" placeholder="Nom, extension, numéro — ex. « sv8a 212 »" value="${esc(lastQuery)}" autocomplete="off" enterkeyhint="search" aria-label="Rechercher une carte">
     <div id="results"></div>`;
   const input = root.querySelector('#q');

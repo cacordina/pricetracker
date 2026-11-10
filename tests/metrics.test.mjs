@@ -203,3 +203,9 @@ test('album : toutes les cartes d’une rareté, par extension, avec l’état p
   const owned = m.album(cat, holdings, { rarities: ['AR', 'SAR'], show: 'owned' });
   assert.deepEqual(owned.map((g) => [g.set, g.total, g.cards.map((c) => c.card.id)]), [['A', 3, [1]]]);
 });
+
+test('topOwned : cartes possédées les plus chères, sans les cartes inconnues ou sans prix', () => {
+  const holdings = [{ id_product: 803303, qty: 5 }, { id_product: 803325, qty: 1 }, { id_product: 5, qty: 1 }, { id_product: 999, qty: 1 }, { id_product: 4, qty: 1 }];
+  assert.deepEqual(m.topOwned(holdings, { ...catalog, byId: new Map(catalog.cards.map((c) => [c.id, c])) }, snapshot, 3).map((c) => c.id), [803325, 5, 4]);
+  assert.deepEqual(m.topOwned([], { ...catalog, byId: new Map() }, snapshot, 3), []);
+});

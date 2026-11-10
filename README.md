@@ -1,4 +1,4 @@
-# Suivi de prix — cartes Pokémon japonaises (Cardmarket)
+# Carnet JP — suivi de prix des cartes Pokémon japonaises (Cardmarket)
 
 Site personnel qui suit chaque jour les prix Cardmarket des cartes Pokémon japonaises à l'unité : marché (hausses, baisses, bonnes affaires), fiche carte avec courbe, collection et liste d'envies privées.
 

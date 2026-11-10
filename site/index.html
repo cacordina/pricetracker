@@ -3,19 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#14161c">
+  <meta name="theme-color" content="#0f1226">
   <meta name="robots" content="noindex">
-  <title>Suivi cartes JP</title>
+  <title>Carnet JP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
   <link rel="stylesheet" href="vendor/uPlot.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <header class="top">
+    <a class="brand" href="#/accueil" aria-label="Carnet JP, accueil"><span class="mark" aria-hidden="true">帳</span>Carnet JP</a>
+    <a class="icon-btn" href="#/recherche" data-top="recherche" aria-label="Rechercher une carte">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg></a>
+    <a class="icon-btn" href="#/connexion" data-top="connexion" aria-label="Mon compte">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg></a>
+  </header>
   <main id="view" aria-live="polite"><p class="state">Chargement…</p></main>
   <nav class="tabs" aria-label="Navigation principale">
-    <a href="#/collection" data-tab="collection">Collection</a>
-    <a href="#/marche" data-tab="marche">Marché</a>
-    <a href="#/envies" data-tab="envies">Envies<span class="dot" id="wish-dot" hidden></span></a>
-    <a href="#/recherche" data-tab="recherche">Recherche</a>
+    <a href="#/accueil" data-tab="accueil">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4l8 7.2V20h-5.5v-5.5h-5V20H4z"/></svg>Accueil</a>
+    <a href="#/marche" data-tab="marche">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"/><path d="M15 7h5v5"/></svg>Marché</a>
+    <a href="#/scan" data-tab="scan" class="scan-tab" aria-label="Scanner une carte">
+      <span class="bubble"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.500H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M8 12h8"/></svg></span>
+      <span class="label">Scanner</span></a>
+    <a href="#/collection" data-tab="collection">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3.5" width="12" height="16" rx="1.8"/><path d="M5 7v12.5a1 1 0 0 0 1 1h9"/></svg>Collection</a>
+    <a href="#/envies" data-tab="envies">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 4 2.4 5 5.4.7-4 3.800 1 5.400L12 16.3 7.2 18.9l1-5.4-4-3.800 5.400-.700z"/></svg>Envies<span class="dot" id="wish-dot" hidden></span></a>
   </nav>
   <script src="vendor/uPlot.iife.min.js"></script>
   <script src="vendor/supabase.min.js"></script>

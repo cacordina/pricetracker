@@ -6,6 +6,7 @@ import * as store from './lib/store.js';
 import { wishStatus } from './lib/metrics.js';
 
 const ROUTES = {
+  accueil: () => import('./views/home.js'),
   marche: () => import('./views/market.js'),
   collection: () => import('./views/collection.js'),
   ajout: () => import('./views/quickadd.js'),
@@ -16,21 +17,22 @@ const ROUTES = {
   carte: () => import('./views/card.js'),
   connexion: () => import('./views/login.js'),
 };
-const TAB_OF = { ajout: 'collection', album: 'collection', scan: 'recherche', carte: null, connexion: null };
+const TAB_OF = { ajout: 'collection', album: 'collection', recherche: null, carte: null, connexion: null };
 
 const view = document.getElementById('view');
 let renderId = 0;
 
 async function render() {
   // Les liens de confirmation Supabase reviennent avec un hash qui n'est pas une route : on l'ignore.
-  const [, name = 'marche', param] = location.hash.match(/^#\/([a-z]+)(?:\/(.+))?$/) ?? [];
-  const load = ROUTES[name] ?? ROUTES.marche;
+  const [, name = 'accueil', param] = location.hash.match(/^#\/([a-z]+)(?:\/(.+))?$/) ?? [];
+  const load = ROUTES[name] ?? ROUTES.accueil;
   const id = ++renderId;
   const tab = name in TAB_OF ? TAB_OF[name] : name;
   for (const link of document.querySelectorAll('.tabs a')) {
     link.classList.toggle('on', link.dataset.tab === tab);
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
   }
+  for (const link of document.querySelectorAll('.top [data-top]')) link.classList.toggle('on', link.dataset.top === name);
   try {
     const [module, catalog, snapshot] = await Promise.all([load(), loadCatalog(), loadSnapshot()]);
     if (id !== renderId) return; // une autre navigation a eu lieu entre-temps

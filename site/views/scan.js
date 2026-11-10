@@ -23,7 +23,7 @@ function frameCanvas(source) {
 
 export async function render(root, { catalog, snapshot, store }) {
   root.innerHTML = `
-    <div class="toolbar"><h1>Scanner</h1><a class="link" href="#/recherche">← Recherche</a></div>
+    <h1>Scanner</h1>
     <div class="scan-frame" id="frame">
       <video id="video" playsinline muted></video>
       <div class="scan-zone" aria-hidden="true"></div>

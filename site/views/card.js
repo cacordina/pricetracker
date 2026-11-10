@@ -1,7 +1,7 @@
 // Fiche d'une carte : image, prix, courbe, lien Cardmarket, collection et envies.
 import { loadHistory } from '../lib/data.js';
 import { COL, displayName, formatEuro, cardmarketUrl, RARITY_LABEL } from '../lib/metrics.js';
-import { cardImg, chips, onChip, pctSpan, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
+import { cardImg, chips, onChip, pctSpan, rarityTag, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { CARDMARKET_FILTERS } from '../config.js';
 
@@ -26,7 +26,8 @@ export async function render(root, { catalog, snapshot, store, param }) {
       <div class="info">
         <h1 style="margin-bottom:2px">${esc(displayName(card))}</h1>
         <div class="muted">${esc(card.ja)}${card.fr && card.en ? ` · ${esc(card.en.replace(/\s*\[.*\]\s*$/, ""))}` : ""}</div>
-        <div class="muted">${esc(set?.name ?? card.s)} · ${esc(card.s)} ${esc(card.n)}${RARITY_LABEL[card.r] ? ` · ${RARITY_LABEL[card.r]}` : ''}</div>
+        <div class="muted">${esc(card.s)} ${esc(card.n)}${rarityTag(card)}</div>
+        <div class="muted">${esc(set?.name ?? '')}</div>
         ${priced ? `
           <div class="big" style="margin-top:10px">${formatEuro(row[COL.trend])}</div>
           <div>${pctSpan(row[COL.d7])} <span class="muted">7 j</span> &nbsp; ${pctSpan(row[COL.d30])} <span class="muted">30 j</span></div>
@@ -97,11 +98,11 @@ async function renderMine(box, id, store) {
           <b>${qty}</b><button type="button" data-act="plus" aria-label="Ajouter un exemplaire">+</button></span>
       </div></div>
       <div class="box"><div class="line">
-        <span>${wish ? '★ Dans mes envies' : '☆ Ajouter à mes envies'}</span>
-        <span>cible <input class="small" type="number" id="target" inputmode="decimal" min="0" step="0.01" placeholder="—" value="${wish?.target_cents ? (wish.target_cents / 100).toFixed(2) : ''}" aria-label="Prix cible en euros"> €</span>
+        <span>${wish ? '★ Dans mes envies' : 'Mes envies'}</span>
+        <span class="muted">prix cible <input class="small" type="number" id="target" inputmode="decimal" min="0" step="0.01" placeholder="—" value="${wish?.target_cents ? (wish.target_cents / 100).toFixed(2) : ''}" aria-label="Prix cible en euros"> €</span>
       </div>
       <div class="line" style="margin-top:8px">
-        <button type="button" class="link" data-act="wish">${wish ? 'Mettre à jour la cible' : 'Ajouter'}</button>
+        <button type="button" class="link" data-act="wish">${wish ? 'Mettre à jour la cible' : 'Ajouter à mes envies'}</button>
         ${wish ? '<button type="button" class="link" data-act="unwish">Retirer de mes envies</button>' : ''}
       </div></div>
       ${message ? `<p class="error">${esc(message)}</p>` : ''}`;
