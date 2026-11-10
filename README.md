@@ -72,7 +72,7 @@ Node 22 ou plus, aucune dépendance à installer.
 
 ## Scanner de cartes (expérimental)
 
-Écran `#/scan`, accessible depuis la recherche. La caméra lit en continu, sans appui, la série et le numéro imprimés en bas à gauche de la carte (« sv8a 212/187 ») avec Tesseract.js, chargé depuis jsDelivr au premier usage (environ 6 Mo). Trois passes de lecture par image, cumulées d'une image à l'autre ; une carte est retenue quand son numéro concorde avec la série ou le total officiel. Les cartes reconnues s'empilent dans une liste, ajoutée à la collection en une fois. Les cartes à fond sombre et chargé sont les plus difficiles à lire.
+Écran `#/scan`, accessible depuis la recherche. Dès l'ouverture, sans appui, la caméra cherche la série et le numéro imprimés en bas à gauche de la carte (« sv8a 212/187 ») avec Tesseract.js, chargé depuis jsDelivr au premier usage (environ 6 Mo). Trois passes de lecture par image, cumulées d'une image à l'autre ; une carte est retenue quand son numéro concorde avec la série ou le total officiel. À la première carte reconnue, l'image se fige et le résultat s'affiche (prix, ajout à la collection, fiche) ; « Scanner une autre carte » relance. Les cartes à fond sombre et chargé sont les plus difficiles à lire.
 
 ## Limites connues
 

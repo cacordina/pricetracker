@@ -21,6 +21,12 @@ export function frenchName(en, table) {
   if (!found) return null;
   let out = name.replace(found[0], table[found[0]]);
   out = out.replace(/\bMega (?=\S)/, 'Méga-');
+  // « Alolan Meowth V » → « Miaouss d’Alola V » : la région se place juste après le nom de l'espèce
+  const region = out.match(/^(Alolan|Galarian|Hisuian|Paldean) /);
+  if (region) {
+    const suffix = { Alolan: 'd’Alola', Galarian: 'de Galar', Hisuian: 'de Hisui', Paldean: 'de Paldea' }[region[1]];
+    out = out.slice(region[0].length).replace(table[found[0]], `${table[found[0]]} ${suffix}`);
+  }
   // « Misty's Psyduck » → « Psykokwak de Misty »
   const owned = out.match(/^(.+?)'s (.+)$/);
   if (owned) out = `${owned[2]} ${owned[1] === 'Team Rocket' ? 'de la' : 'de'} ${owned[1]}`;

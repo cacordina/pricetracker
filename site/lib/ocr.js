@@ -27,7 +27,7 @@ export function prepare() {
 }
 
 /**
- * Découpe une bande de la source et la prépare pour la lecture : agrandie, en niveaux de gris, contraste étiré.
+ * Découpe une bande de la source et la prépare pour la lecture : mise à hauteur fixe, niveaux de gris, contraste étiré.
  * `band` = { top, bottom, left, right } en fractions de la source.
  */
 export function cropBand(source, band, targetHeight = 220) {
@@ -37,7 +37,7 @@ export function cropBand(source, band, targetHeight = 220) {
   const y = Math.round(sh * band.top);
   const w = Math.round(sw * (band.right - band.left));
   const h = Math.round(sh * (band.bottom - band.top));
-  const scale = Math.max(1, targetHeight / h);
+  const scale = targetHeight / h; // toujours ramenée à la même hauteur : le moteur lit mieux un texte de taille constante
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(w * scale);
   canvas.height = Math.round(h * scale);

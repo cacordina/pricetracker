@@ -25,3 +25,10 @@ test('aucune espèce reconnue ou nom absent : null', () => {
   assert.equal(fr(null), null);
   assert.equal(fr(''), null);
 });
+
+test('formes régionales : « Alolan X » devient « X d’Alola »', () => {
+  assert.equal(fr('Alolan Meowth [Scratch]'), 'Miaouss d’Alola');
+  assert.equal(fr('Galarian Meowth V'), 'Miaouss de Galar V');
+  assert.equal(fr('Hisuian Charizard'), 'Dracaufeu de Hisui');
+  assert.equal(fr('Paldean Mewtwo ex'), 'Mewtwo-fr de Paldea ex');
+});
