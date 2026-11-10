@@ -12,10 +12,11 @@ const ROUTES = {
   album: () => import('./views/album.js'),
   envies: () => import('./views/wishlist.js'),
   recherche: () => import('./views/search.js'),
+  scan: () => import('./views/scan.js'),
   carte: () => import('./views/card.js'),
   connexion: () => import('./views/login.js'),
 };
-const TAB_OF = { ajout: 'collection', album: 'collection', carte: null, connexion: null };
+const TAB_OF = { ajout: 'collection', album: 'collection', scan: 'recherche', carte: null, connexion: null };
 
 const view = document.getElementById('view');
 let renderId = 0;

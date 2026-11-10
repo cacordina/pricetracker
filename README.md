@@ -70,6 +70,10 @@ Node 22 ou plus, aucune dépendance à installer.
 - Variables du dépôt GitHub `SUPABASE_URL` et `SUPABASE_KEY` (facultatives) : la tâche quotidienne s'en sert pour garder le projet Supabase gratuit actif.
 - `supabase/migrations/0001_init.sql` : tables `holdings` et `wishes` et leurs règles d'accès.
 
+## Scanner de cartes (expérimental)
+
+Écran `#/scan`, accessible depuis la recherche. Il lit la série et le numéro imprimés en bas à gauche de la carte (« sv8a 212/187 ») avec Tesseract.js, chargé depuis jsDelivr au premier scan (environ 6 Mo), puis propose les cartes du catalogue dont le numéro et la série ou le total officiel concordent. Trois passes de lecture par photo, fusionnées. Sur 8 images web en basse résolution, 5 ont été reconnues ; les cartes à fond sombre et chargé sont les plus difficiles.
+
 ## Limites connues
 
 - Les prix sont globaux par carte : ni l'état, ni la langue du vendeur. Le « plus bas » peut être un exemplaire abîmé.
