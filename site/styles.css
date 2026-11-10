@@ -113,3 +113,7 @@ input.small { width: 92px; padding: 6px 8px; text-align: right; }
 /* uPlot en thème sombre */
 .uplot, .uplot * { font-family: inherit; }
 .u-legend { display: none; }
+
+/* Vignette sans image dans une liste : trop petite pour du texte lisible */
+.row .noimg { font-size: 0; }
+.row .noimg::after { content: "?"; font-size: 16px; }
