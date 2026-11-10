@@ -19,7 +19,7 @@ export function indexProducts(products) {
     const ext = Object.fromEntries((p.extendedData ?? []).map((e) => [e.name, e.value]));
     if (!ext.Number) continue;
     const key = numberKey(ext.Number);
-    const entry = { productId: p.productId, name: p.name, rarity: ext.Rarity ?? null };
+    const entry = { productId: p.productId, name: p.name, rarity: ext.Rarity ?? null, number: String(ext.Number).split('/')[0].trim(), total: String(ext.Number).split('/')[1]?.trim() ?? null };
     const current = index.get(key);
     if (!current || (/\(/.test(current.name) && !/\(/.test(p.name))) index.set(key, entry);
   }
@@ -66,6 +66,47 @@ export async function fetchIndexes(setIds, { fetchImpl = fetch, delayMs = 150, l
   for (const [setId, groupId] of groups) {
     try {
       out[setId] = indexProducts(await get(`/${groupId}/products`));
+    } catch (err) {
+      log(`tcgcsv ${setId}: ${err.message}`);
+    }
+    await sleep(delayMs);
+  }
+  return out;
+}
+
+/**
+ * Toutes les extensions du catalogue TCGplayer Japon, avec leurs cartes.
+ * Renvoie { [setId]: { name, date, official, index, cards } } ; `setId` reprend l'identifiant TCGdex quand
+ * l'abréviation concorde (sans tenir compte de la casse), sinon l'abréviation TCGplayer.
+ */
+export async function fetchGroups(knownSetIds, { fetchImpl = fetch, delayMs = 120, log = () => {} } = {}) {
+  const get = async (path) => {
+    const res = await fetchImpl(`${BASE}${path}`, { headers: { 'user-agent': 'jp-card-price-tracker' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()).results ?? [];
+  };
+  const known = new Map(knownSetIds.map((id) => [id.toLowerCase(), id]));
+  const out = {};
+  let groups;
+  try {
+    groups = await get('/groups');
+  } catch (err) {
+    log(`tcgcsv indisponible (${err.message}) : catalogue non complété cette fois`);
+    return out;
+  }
+  for (const group of groups) {
+    const abbr = group.abbreviation?.trim();
+    if (!abbr) continue;
+    const setId = known.get(abbr.toLowerCase()) ?? abbr;
+    if (out[setId]) continue;
+    try {
+      const index = indexProducts(await get(`/${group.groupId}/products`));
+      const cards = [...index.values()].map((e) => ({ number: e.number, name: e.name, rarity: e.rarity, productId: e.productId }));
+      // total officiel = dénominateur le plus fréquent (« 091/063 » → 63)
+      const totals = new Map();
+      for (const e of index.values()) if (/^\d+$/.test(e.total ?? '')) totals.set(Number(e.total), (totals.get(Number(e.total)) ?? 0) + 1);
+      const [official] = [...totals].sort((a, b) => b[1] - a[1])[0] ?? [null];
+      out[setId] = { name: group.name, date: group.publishedOn?.slice(0, 10) ?? null, official, index, cards };
     } catch (err) {
       log(`tcgcsv ${setId}: ${err.message}`);
     }

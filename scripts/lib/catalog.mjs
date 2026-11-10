@@ -23,6 +23,7 @@ export async function buildCatalog({ client, products, previous, only = null, co
   const cards = [];
   const coverage = {};
   const errors = [];
+  const jaNames = {}; // noms japonais de toutes les cartes, même non reliées à Cardmarket (pour fill.mjs)
 
   const briefs = (await client.listSets()).filter((s) => !only || only.includes(s.id));
   // Extensions hors périmètre de cette exécution : reprises telles quelles.
@@ -39,6 +40,7 @@ export async function buildCatalog({ client, products, previous, only = null, co
       const set = await client.getSet(brief.id);
       const list = set?.cards ?? [];
       const setCards = [];
+      jaNames[brief.id] = Object.fromEntries(list.map((item) => [String(item.localId), item.name]));
       let img = null;
       for (const item of list) {
         if (item.image) { img = item.image.slice(0, item.image.lastIndexOf('/')); break; }
@@ -80,5 +82,5 @@ export async function buildCatalog({ client, products, previous, only = null, co
   // Un même produit Cardmarket ne doit apparaître qu'une fois.
   const seen = new Set();
   const unique = cards.filter((c) => !seen.has(c.id) && seen.add(c.id));
-  return { catalog: { builtAt: new Date().toISOString(), sets, cards: unique }, coverage, errors };
+  return { catalog: { builtAt: new Date().toISOString(), sets, cards: unique }, coverage, errors, jaNames };
 }
