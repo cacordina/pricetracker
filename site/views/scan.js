@@ -1,24 +1,24 @@
-// Scanner : lit la série et le numéro imprimés en bas à gauche d'une carte, puis propose les cartes correspondantes.
-import { parseScan, mergeScans } from '../lib/scan.js';
+// Scanner automatique : la caméra lit en continu la série et le numéro imprimés en bas à gauche de la carte.
+// Chaque carte reconnue rejoint une liste, qu'on ajoute ensuite à la collection en une fois.
+import { parseScan, mergeScans, createTracker, createEvidence } from '../lib/scan.js';
 import { prepare, readCardPasses } from '../lib/ocr.js';
-import { COL } from '../lib/metrics.js';
-import { cardRow, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
+import { COL, displayName, formatEuro } from '../lib/metrics.js';
+import { cardImg, esc } from '../lib/ui.js';
 
 const CARD_RATIO = 63 / 88;
-// Deux cadrages : gros plan sur le quart inférieur de la carte (chiffres plus grands, plus fiable) ou carte entière.
-const MODES = {
-  close: { label: 'Bas de la carte', ratio: 63 / 22, cardTop: 0.75, hint: 'Approchez-vous : le quart inférieur de la carte doit remplir le cadre, bord bas de la carte sur le bord bas du cadre.' },
-  full: { label: 'Carte entière', ratio: CARD_RATIO, cardTop: 0, hint: 'Cadrez la carte entière dans le cadre, bien à plat.' },
-};
-const MODE_CHIPS = Object.entries(MODES).map(([value, m]) => ({ value, label: m.label }));
 
-/** Recadre la source aux proportions du cadre affiché (comme l'aperçu à l'écran) et renvoie un canvas. */
-function frameCanvas(source, ratio) {
+// La liste survit à un aller-retour vers une fiche carte.
+// Entrée : { key, card, qty } pour une carte reconnue, { key, choices } quand plusieurs cartes sont possibles.
+let session = [];
+let nextKey = 1;
+
+/** Recadre la source aux proportions d'une carte (comme l'aperçu à l'écran) et renvoie un canvas. */
+function frameCanvas(source) {
   const sw = source.videoWidth || source.naturalWidth || source.width;
   const sh = source.videoHeight || source.naturalHeight || source.height;
   let w = sw;
-  let h = Math.round(sw / ratio);
-  if (h > sh) { h = sh; w = Math.round(sh * ratio); }
+  let h = Math.round(sw / CARD_RATIO);
+  if (h > sh) { h = sh; w = Math.round(sh * CARD_RATIO); }
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -27,132 +27,253 @@ function frameCanvas(source, ratio) {
 }
 
 export async function render(root, { catalog, snapshot, store }) {
-  const prefs = loadPrefs('scan', { mode: 'close' });
-  if (!MODES[prefs.mode]) prefs.mode = 'close';
   root.innerHTML = `
-    <div class="toolbar"><h1>Scanner une carte</h1><a class="link" href="#/recherche">← Recherche</a></div>
-    ${chips('mode', MODE_CHIPS, prefs.mode)}
-    <div class="muted" id="hint"></div>
-    <div class="scan-frame" id="frame"><video id="video" playsinline muted></video><div class="scan-zone"></div>
-      <p class="state" id="cam-msg">Démarrage de la caméra…</p></div>
-    <div class="muted" style="text-align:center">La série et le numéro sont en bas à gauche de la carte (zone en pointillés). Évitez les reflets dessus.</div>
-    <button type="button" class="btn" id="shoot" disabled>Scanner</button>
-    <label class="btn sec" style="cursor:pointer">Choisir une photo de la carte entière<input type="file" id="file" accept="image/*" hidden></label>
-    <div id="status" class="muted" style="margin-top:10px;min-height:1.4em" aria-live="polite"></div>
-    <div id="results"></div>`;
+    <div class="toolbar"><h1>Scanner</h1><a class="link" href="#/recherche">← Recherche</a></div>
+    <div class="scan-frame" id="frame">
+      <video id="video" playsinline muted></video>
+      <div class="scan-zone" aria-hidden="true"></div>
+      <div class="scan-pill" id="pill" aria-live="polite">Démarrage de la caméra…</div>
+      <button type="button" class="scan-torch" id="torch" hidden aria-pressed="false">Lampe</button>
+      <div class="scan-toast" id="toast" hidden></div>
+    </div>
+    <div class="muted" style="text-align:center">Présentez la carte entière dans le cadre : elle est reconnue toute seule, puis passez à la suivante.</div>
+    <div class="toolbar" style="margin-top:6px">
+      <button type="button" class="link" id="pause">Mettre en pause</button>
+      <label class="link" style="cursor:pointer">Choisir une photo<input type="file" id="file" accept="image/*" hidden></label>
+    </div>
+    <div id="list"></div>`;
 
   const frame = root.querySelector('#frame');
-  function applyMode() {
-    const mode = MODES[prefs.mode];
-    frame.style.aspectRatio = String(mode.ratio);
-    frame.classList.toggle('close', prefs.mode === 'close');
-    root.querySelector('#hint').textContent = mode.hint;
-    for (const chip of root.querySelectorAll('[data-group=mode] .chip')) chip.classList.toggle('on', chip.dataset.value === prefs.mode);
-  }
-  onChip(root, (group, value) => {
-    if (group !== 'mode') return;
-    prefs.mode = value;
-    savePrefs('scan', prefs);
-    applyMode();
-  });
-  applyMode();
-
   const video = root.querySelector('#video');
-  const shoot = root.querySelector('#shoot');
-  const status = root.querySelector('#status');
-  const results = root.querySelector('#results');
-  const camMsg = root.querySelector('#cam-msg');
+  const pill = root.querySelector('#pill');
+  const toast = root.querySelector('#toast');
+  const torch = root.querySelector('#torch');
+  const pauseButton = root.querySelector('#pause');
+  const list = root.querySelector('#list');
+
+  const tracker = createTracker();
+  const evidence = createEvidence(catalog); // cumule ce qui est lu d'une image à l'autre
   let stream = null;
+  let alive = true;
+  let paused = false;
+  let timer = null;
+  let toastTimer = null;
   let owned = new Map();
   let connected = false;
-  store.listHoldings().then((rows) => { owned = new Map(rows.map((r) => [r.id_product, r.qty])); connected = true; }).catch(() => {});
+  let notice = '';
 
-  const stop = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; };
+  store.listHoldings()
+    .then((rows) => { owned = new Map(rows.map((r) => [r.id_product, r.qty])); connected = true; drawList(); })
+    .catch(() => { drawList(); });
+
+  const price = (card) => snapshot.cards[card.id]?.[COL.trend] ?? null;
+
+  // ---------- Caméra ----------
+  function stop() {
+    alive = false;
+    clearTimeout(timer);
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+  }
   window.addEventListener('hashchange', stop, { once: true });
 
   async function startCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
-      camMsg.textContent = 'Caméra indisponible dans ce navigateur. Utilisez « Choisir une photo ».';
+      pill.textContent = 'Caméra indisponible : utilisez « Choisir une photo »';
       return;
     }
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false,
+      });
+      if (!alive) { stream.getTracks().forEach((t) => t.stop()); return; }
       video.srcObject = stream;
       await video.play();
-      camMsg.hidden = true;
-      shoot.disabled = false;
+      const track = stream.getVideoTracks()[0];
+      if (track.getCapabilities?.().torch) {
+        torch.hidden = false;
+        torch.onclick = async () => {
+          const on = torch.getAttribute('aria-pressed') !== 'true';
+          try {
+            await track.applyConstraints({ advanced: [{ torch: on }] });
+            torch.setAttribute('aria-pressed', String(on));
+            torch.classList.toggle('on', on);
+          } catch { torch.hidden = true; }
+        };
+      }
+      pill.textContent = 'Préparation de la lecture…';
+      loop();
     } catch {
-      camMsg.textContent = 'Caméra refusée ou indisponible. Autorisez-la pour ce site, ou utilisez « Choisir une photo ».';
+      pill.textContent = 'Caméra refusée : autorisez-la pour ce site, ou choisissez une photo';
     }
   }
 
-  async function scan(source, mode) {
-    shoot.disabled = true;
-    results.innerHTML = '';
-    status.textContent = 'Lecture en cours… (le premier scan télécharge le moteur de lecture, environ 6 Mo)';
+  // ---------- Lecture en continu ----------
+  async function read(source) {
+    const texts = await readCardPasses(frameCanvas(source), { cardTop: 0 });
+    return mergeScans(texts.map((text) => parseScan(text, catalog)));
+  }
+
+  async function loop() {
+    if (!alive) return;
+    const wait = (ms) => { timer = setTimeout(loop, ms); };
+    if (paused || document.hidden || !stream || video.readyState < 2) return wait(400);
     try {
-      const texts = await readCardPasses(frameCanvas(source, mode.ratio), { cardTop: mode.cardTop });
-      show(mergeScans(texts.map((text) => parseScan(text, catalog))), texts.join(' | '));
+      const result = evidence.add(await read(video));
+      if (!alive) return;
+      const hit = tracker.push(result);
+      if (hit) detected(hit.candidates);
+      else if (result.candidates.length) pill.textContent = 'Carte reconnue — présentez la suivante';
+      else pill.textContent = result.number ? `Lu ${result.number}${result.official ? `/${result.official}` : ''}… je vérifie` : 'Recherche d’une carte…';
     } catch (err) {
-      status.textContent = `Lecture impossible : ${err.message}`;
-    } finally {
-      shoot.disabled = !stream;
+      pill.textContent = `Lecture impossible : ${err.message}`;
+      return wait(3000);
     }
+    wait(200);
   }
 
-  function show(found, text) {
-    const read = found.number
-      ? `Lu : ${found.sets.length ? `série ${found.sets.join(', ')}, ` : ''}numéro ${found.number}${found.official ? `/${found.official}` : ''}`
-      : 'Numéro non lu';
-    if (!found.candidates.length) {
-      status.innerHTML = `${esc(read)}. Aucune carte trouvée : rapprochez la carte, évitez les reflets, puis réessayez.
-        <br><span style="opacity:.7">Texte brut : ${esc(text.slice(0, 120)) || '(rien)'}</span>`;
+  function detected(candidates) {
+    navigator.vibrate?.(60);
+    frame.classList.add('hit');
+    setTimeout(() => frame.classList.remove('hit'), 500);
+    if (candidates.length === 1) {
+      addCard(candidates[0]);
+      const card = candidates[0];
+      showToast(`✓ ${displayName(card)} · ${card.s} ${card.n} · ${formatEuro(price(card))}`);
+      pill.textContent = 'Carte reconnue — présentez la suivante';
+    } else {
+      session.unshift({ key: nextKey++, choices: candidates });
+      showToast(`${candidates.length} cartes possibles : choisissez dans la liste`);
+      pill.textContent = 'Plusieurs cartes possibles — choisissez dans la liste';
+    }
+    notice = '';
+    drawList();
+  }
+
+  function addCard(card) {
+    const existing = session.find((e) => e.card?.id === card.id);
+    if (existing) existing.qty += 1;
+    else session.unshift({ key: nextKey++, card, qty: 1 });
+  }
+
+  function showToast(text) {
+    toast.textContent = text;
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
+  }
+
+  // ---------- Liste des cartes scannées ----------
+  function drawList() {
+    const cards = session.filter((e) => e.card);
+    const count = cards.reduce((n, e) => n + e.qty, 0);
+    const total = cards.reduce((n, e) => n + (price(e.card) ?? 0) * e.qty, 0);
+    if (!session.length) {
+      list.innerHTML = notice ? `<div class="banner">${esc(notice)}</div>` : '';
       return;
     }
-    status.textContent = `${read}. ${found.candidates.length > 1 ? 'Plusieurs cartes possibles, choisissez la bonne :' : 'Carte trouvée :'}`;
-    results.innerHTML = found.candidates.map((card) => {
-      const row = snapshot.cards[card.id];
-      const qty = owned.get(card.id) ?? 0;
-      return `${cardRow(card, catalog.sets, { trend: row?.[COL.trend] ?? null, change: row?.[COL.d7] ?? null })}
-        ${connected ? `<button type="button" class="btn sec" data-add="${card.id}" style="margin:0 0 10px">${qty ? `Dans ma collection (×${qty}) — en ajouter une` : '+ Ajouter à ma collection'}</button>` : ''}`;
-    }).join('');
+    const pending = session.some((e) => e.choices);
+    list.innerHTML = `
+      ${notice ? `<div class="banner">${esc(notice)}</div>` : ''}
+      <div class="toolbar"><h2>Cartes scannées · ${count}</h2><span class="muted">${formatEuro(total)}</span></div>
+      ${session.map(entry).join('')}
+      ${connected
+        ? `<button type="button" class="btn" id="save" ${count ? '' : 'disabled'}>Ajouter ${count > 1 ? `ces ${count} cartes` : 'cette carte'} à ma collection</button>
+           ${pending ? '<div class="muted" style="text-align:center;margin-top:4px">Les cartes à choisir ne sont pas comptées.</div>' : ''}`
+        : '<a class="btn sec" href="#/connexion">Se connecter pour les ajouter à ma collection</a>'}
+      <p style="text-align:center"><button type="button" class="link" id="clear">Vider la liste</button></p>`;
   }
 
-  results.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-add]');
-    if (!button) return;
-    const id = Number(button.dataset.add);
-    button.disabled = true;
-    try {
-      const next = (owned.get(id) ?? 0) + 1;
-      await store.setHolding(id, next);
-      owned.set(id, next);
-      button.textContent = `✓ Ajoutée — dans ma collection (×${next})`;
-    } catch (err) {
-      button.textContent = `Non enregistré : ${err.message}`;
-    } finally {
-      button.disabled = false;
+  function entry(e) {
+    if (e.choices) {
+      return `<div class="box" data-key="${e.key}">
+        <div class="line"><b>Laquelle est-ce ?</b><button type="button" class="link" data-act="drop">Ignorer</button></div>
+        <div class="grid" style="margin-top:8px">${e.choices.map((card) => `
+          <button type="button" class="tile choice" data-act="pick" data-id="${card.id}">
+            ${cardImg(card, catalog.sets)}<div class="muted">${esc(card.s)} ${esc(card.n)}</div></button>`).join('')}</div>
+      </div>`;
     }
+    const have = owned.get(e.card.id) ?? 0;
+    return `<div class="row" data-key="${e.key}">
+      <a href="#/carte/${e.card.id}">${cardImg(e.card, catalog.sets)}</a>
+      <div class="name"><b>${esc(displayName(e.card))}</b>
+        <div class="muted">${esc(e.card.s)} · ${esc(e.card.n)} · ${formatEuro(price(e.card))}${have ? ` · déjà ×${have}` : ''}</div></div>
+      <span class="stepper"><button type="button" data-act="minus" aria-label="Retirer un exemplaire">−</button>
+        <b>${e.qty}</b><button type="button" data-act="plus" aria-label="Ajouter un exemplaire">+</button></span>
+    </div>`;
+  }
+
+  list.addEventListener('click', async (event) => {
+    if (event.target.closest('#clear')) { session = []; notice = ''; tracker.reset(); evidence.clear(); return drawList(); }
+    if (event.target.closest('#save')) return saveAll(event.target.closest('#save'));
+    const button = event.target.closest('[data-act]');
+    const key = Number(button?.closest('[data-key]')?.dataset.key);
+    const index = session.findIndex((e) => e.key === key);
+    if (!button || index < 0) return;
+    const item = session[index];
+    const act = button.dataset.act;
+    if (act === 'plus') item.qty += 1;
+    else if (act === 'minus') { item.qty -= 1; if (item.qty <= 0) session.splice(index, 1); }
+    else if (act === 'drop') session.splice(index, 1);
+    else if (act === 'pick') {
+      const card = item.choices.find((c) => c.id === Number(button.dataset.id));
+      session.splice(index, 1);
+      if (card) addCard(card);
+    }
+    drawList();
   });
 
-  shoot.onclick = () => scan(video, MODES[prefs.mode]);
+  async function saveAll(button) {
+    button.disabled = true;
+    button.textContent = 'Enregistrement…';
+    const cards = session.filter((e) => e.card);
+    let done = 0;
+    try {
+      for (const e of cards) {
+        const next = (owned.get(e.card.id) ?? 0) + e.qty;
+        await store.setHolding(e.card.id, next);
+        owned.set(e.card.id, next);
+        session = session.filter((x) => x !== e); // une carte enregistrée quitte la liste : pas de double ajout si la suite échoue
+        done += e.qty;
+      }
+      notice = `${done} carte${done > 1 ? 's ajoutées' : ' ajoutée'} à votre collection.`;
+    } catch (err) {
+      notice = `${done ? `${done} carte${done > 1 ? 's ajoutées' : ' ajoutée'}, puis ` : ''}échec : ${err.message} Les cartes restantes sont toujours dans la liste.`;
+    }
+    drawList();
+  }
+
+  // ---------- Pause et photo ----------
+  pauseButton.onclick = () => {
+    paused = !paused;
+    pauseButton.textContent = paused ? 'Reprendre le scan' : 'Mettre en pause';
+    pill.textContent = paused ? 'En pause' : 'Recherche d’une carte…';
+    frame.classList.toggle('paused', paused);
+  };
+
   root.querySelector('#file').onchange = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     const image = new Image();
     image.src = URL.createObjectURL(file);
+    pill.textContent = 'Lecture de la photo…';
     try {
       await image.decode();
-      await scan(image, MODES.full);
+      const result = await read(image);
+      if (result.candidates.length) detected(result.candidates);
+      else { notice = `Photo non reconnue${result.number ? ` (lu ${result.number}${result.official ? `/${result.official}` : ''})` : ''}. Cadrez la carte entière, sans reflet en bas à gauche.`; drawList(); }
     } catch {
-      status.textContent = 'Cette photo n’a pas pu être ouverte.';
+      notice = 'Cette photo n’a pas pu être lue.';
+      drawList();
     } finally {
       URL.revokeObjectURL(image.src);
+      pill.textContent = paused ? 'En pause' : 'Recherche d’une carte…';
     }
   };
 
-  root._start = () => { startCamera(); prepare().catch(() => {}); };
+  drawList();
+  root._start = () => { prepare().catch(() => {}); startCamera(); };
 }
 
 export function mounted(root) {

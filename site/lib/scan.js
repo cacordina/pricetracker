@@ -33,6 +33,12 @@ export function parseScan(text, catalog) {
   }
   if (number === null) return { ...empty, sets };
 
+  return { number, official, sets, candidates: matchCards(catalog, { number, official, sets }) };
+}
+
+/** Cartes dont le numéro correspond ET dont la série ou le total officiel concorde (12 au plus). */
+export function matchCards(catalog, { number, official, sets }) {
+  if (number === null) return [];
   const scored = [];
   for (const card of catalog.cards) {
     if (key(card.n) !== number) continue;
@@ -44,7 +50,39 @@ export function parseScan(text, catalog) {
   const kept = scored.some((s) => s.inSet) ? scored.filter((s) => s.inSet) : scored;
   kept.sort((a, b) => b.score - a.score
     || (catalog.sets[b.card.s]?.date ?? '').localeCompare(catalog.sets[a.card.s]?.date ?? ''));
-  return { number, official, sets, candidates: kept.slice(0, 12).map((s) => s.card) };
+  return kept.slice(0, 12).map((s) => s.card);
+}
+
+/**
+ * Cumul des lectures d'images successives d'une même carte : le numéro peut être lu sur une image,
+ * la série ou le total sur une autre. Tout est oublié quand le numéro change ou après deux lectures vides.
+ */
+export function createEvidence(catalog) {
+  let number = null;
+  let official = null;
+  let sets = [];
+  let empty = 0;
+  const clear = () => { number = null; official = null; sets = []; };
+  return {
+    add(result) {
+      const nothing = result.number === null && !result.sets.length;
+      if (nothing) {
+        empty += 1;
+        if (empty >= 2) clear();
+        return result;
+      }
+      empty = 0;
+      if (result.number !== null && number !== null && result.number !== number) clear();
+      if (result.number !== null) number = result.number;
+      if (result.official !== null) official = result.official;
+      for (const id of result.sets) if (!sets.includes(id)) sets.push(id);
+      // une série lue avant que le numéro ne soit connu peut venir d'un texte parasite : on ne garde que les concordantes
+      const merged = { number, official, sets: [...sets] };
+      const candidates = matchCards(catalog, merged);
+      return candidates.length ? { ...merged, candidates } : result;
+    },
+    clear,
+  };
 }
 
 /**
@@ -69,4 +107,37 @@ export function mergeScans(results) {
   }
   const same = withCards.filter((r) => `${r.number}/${r.official}` === best);
   return same.reduce((a, b) => (b.sets.length > a.sets.length || (b.sets.length === a.sets.length && b.candidates.length < a.candidates.length) ? b : a));
+}
+
+/**
+ * Suivi des lectures successives en scan automatique. `push(lecture)` renvoie { candidates } quand une
+ * carte vient d'être reconnue, sinon null.
+ * - Lecture complète (série + total lus) : acceptée tout de suite.
+ * - Lecture partielle : acceptée si la lecture suivante donne les mêmes cartes.
+ * - Une carte déjà signalée ne l'est plus tant qu'elle reste devant la caméra ; elle le redevient
+ *   après `missesToReset` lectures vides (carte retirée) ou dès qu'une autre carte est reconnue.
+ */
+export function createTracker({ missesToReset = 3 } = {}) {
+  let reported = null;
+  let pending = null;
+  let misses = 0;
+  return {
+    push(result) {
+      if (!result.candidates.length) {
+        pending = null;
+        misses += 1;
+        if (misses >= missesToReset) reported = null;
+        return null;
+      }
+      misses = 0;
+      const key = result.candidates.map((c) => c.id).join(',');
+      if (key === reported) { pending = null; return null; }
+      const confident = result.sets.length > 0 && result.official !== null;
+      if (!confident && pending !== key) { pending = key; return null; }
+      pending = null;
+      reported = key;
+      return { candidates: result.candidates };
+    },
+    reset() { reported = null; pending = null; misses = 0; },
+  };
 }

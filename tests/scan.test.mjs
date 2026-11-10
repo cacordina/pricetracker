@@ -68,3 +68,64 @@ test('mergeScans : sans proposition, garde quand même le numéro lu pour l’af
   const read = { number: '212', official: '999', sets: [], candidates: [] };
   assert.equal(mergeScans([{ number: null, official: null, sets: [], candidates: [] }, read]).number, '212');
 });
+
+test('suivi automatique : une lecture complète (série + total) est acceptée tout de suite', async () => {
+  const { createTracker } = await import('../site/lib/scan.js');
+  const t = createTracker();
+  const full = { number: '212', official: '187', sets: ['SV8a'], candidates: [{ id: 1 }] };
+  assert.deepEqual(t.push(full), { candidates: [{ id: 1 }] });
+  assert.equal(t.push(full), null); // même carte toujours devant la caméra : pas de doublon
+});
+test('suivi automatique : une lecture partielle doit être confirmée par la suivante', async () => {
+  const { createTracker } = await import('../site/lib/scan.js');
+  const t = createTracker();
+  const partial = { number: '212', official: '187', sets: [], candidates: [{ id: 1 }, { id: 5 }] };
+  const other = { number: '21', official: '187', sets: [], candidates: [{ id: 2 }] };
+  assert.equal(t.push(partial), null);
+  assert.equal(t.push(other), null);        // lecture différente : on repart de zéro
+  assert.equal(t.push(partial), null);
+  assert.deepEqual(t.push(partial), { candidates: [{ id: 1 }, { id: 5 }] });
+});
+test('suivi automatique : la même carte est de nouveau acceptée après avoir été retirée', async () => {
+  const { createTracker } = await import('../site/lib/scan.js');
+  const t = createTracker();
+  const full = { number: '212', official: '187', sets: ['SV8a'], candidates: [{ id: 1 }] };
+  const none = { number: null, official: null, sets: [], candidates: [] };
+  t.push(full);
+  t.push(none); t.push(none);
+  assert.equal(t.push(full), null);          // deux lectures vides ne suffisent pas
+  t.push(none); t.push(none); t.push(none);
+  assert.deepEqual(t.push(full), { candidates: [{ id: 1 }] });
+});
+test('suivi automatique : une autre carte est acceptée sans attendre', async () => {
+  const { createTracker } = await import('../site/lib/scan.js');
+  const t = createTracker();
+  t.push({ number: '212', official: '187', sets: ['SV8a'], candidates: [{ id: 1 }] });
+  assert.deepEqual(t.push({ number: '101', official: '80', sets: ['M2'], candidates: [{ id: 3 }] }), { candidates: [{ id: 3 }] });
+});
+
+test('cumul sur plusieurs images : numéro lu sur l’une, série ou total sur une autre', async () => {
+  const { createEvidence } = await import('../site/lib/scan.js');
+  const ev = createEvidence(catalog);
+  assert.deepEqual(ids(ev.add(parseScan('212/1B7', catalog))), []);           // numéro seul : rien encore
+  assert.deepEqual(ids(ev.add(parseScan('sv8a 2l2', catalog))), [1]);          // série lue ensuite, sans fraction
+  const ev2 = createEvidence(catalog);
+  ev2.add(parseScan('212/1B7', catalog));
+  const r = ev2.add(parseScan('212/187', catalog));
+  assert.deepEqual([ids(r), r.official], [[1, 5], '187']);
+});
+test('cumul : un autre numéro efface ce qui avait été lu pour la carte précédente', async () => {
+  const { createEvidence } = await import('../site/lib/scan.js');
+  const ev = createEvidence(catalog);
+  ev.add(parseScan('SV8a 212/187', catalog));
+  assert.deepEqual(ids(ev.add(parseScan('101/0B0', catalog))), []);            // la série SV8a ne doit pas servir à la carte 101
+  assert.deepEqual(ids(ev.add(parseScan('M2 101/080', catalog))), [3]);
+});
+test('cumul : deux lectures vides de suite effacent tout', async () => {
+  const { createEvidence } = await import('../site/lib/scan.js');
+  const ev = createEvidence(catalog);
+  ev.add(parseScan('sv8a', catalog));
+  ev.add(parseScan('', catalog));
+  ev.add(parseScan('', catalog));
+  assert.deepEqual(ids(ev.add(parseScan('212/1B7', catalog))), []);
+});
