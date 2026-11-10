@@ -1,0 +1,41 @@
+{
+ "cardCount": {
+  "firstEd": 0,
+  "holo": 35,
+  "normal": 202,
+  "official": 187,
+  "reverse": 248,
+  "total": 237
+ },
+ "cards": [
+  {
+   "id": "SV8a-001",
+   "image": "https://assets.tcgdex.net/ja/SV/SV8a/001",
+   "localId": "001",
+   "name": "スボミー"
+  },
+  {
+   "id": "SV8a-190",
+   "image": "https://assets.tcgdex.net/ja/SV/SV8a/190",
+   "localId": "190",
+   "name": "コルサ"
+  },
+  {
+   "id": "SV8a-212",
+   "image": "https://assets.tcgdex.net/ja/SV/SV8a/212",
+   "localId": "212",
+   "name": "ニンフィアex"
+  }
+ ],
+ "id": "SV8a",
+ "legal": {
+  "expanded": false,
+  "standard": false
+ },
+ "name": "テラスタルフェスex",
+ "releaseDate": "2024-12-06",
+ "serie": {
+  "id": "SV",
+  "name": "ポケモンカードゲーム スカーレット&バイオレット"
+ }
+}
