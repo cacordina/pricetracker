@@ -76,10 +76,16 @@ export async function signOut() {
   if (isConfigured()) await sb().auth.signOut().catch(() => {});
 }
 
+/** Prévient quand l'utilisateur connecté change (et non à chaque retour sur l'onglet). */
 export function onAuthChange(callback) {
   if (!isConfigured()) return;
-  sb().auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') callback(event);
+  let current;
+  sb().auth.onAuthStateChange((event, session) => {
+    const user = session?.user?.id ?? null;
+    if (event === 'INITIAL_SESSION') { current = user; return; }
+    if (user === current) return;
+    current = user;
+    callback(event);
   });
 }
 

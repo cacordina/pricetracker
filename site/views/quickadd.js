@@ -11,7 +11,11 @@ export async function render(root, { catalog, snapshot, store }) {
     return;
   }
   const owned = new Map(holdings.map((h) => [h.id_product, h.qty]));
-  const bySet = Map.groupBy(catalog.cards, (c) => c.s);
+  const bySet = new Map();
+  for (const card of catalog.cards) {
+    if (!bySet.has(card.s)) bySet.set(card.s, []);
+    bySet.get(card.s).push(card);
+  }
   // Extensions les plus récentes d'abord.
   const setIds = [...bySet.keys()].sort((a, b) => (catalog.sets[b]?.date ?? '').localeCompare(catalog.sets[a]?.date ?? '') || a.localeCompare(b));
   const prefs = loadPrefs('quickadd', { set: setIds[0], only: 'all' });
