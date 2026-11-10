@@ -1,0 +1,42 @@
+{
+ "version": 1,
+ "createdAt": "2026-11-10T14:33:19+0100",
+ "products": [
+  {
+   "idProduct": 698452,
+   "name": "Pineco Lv.11 [Tackle | Selfdestruct]",
+   "idCategory": 51,
+   "categoryName": "Pokémon Single",
+   "idExpansion": 4305,
+   "idMetacard": 216122,
+   "dateAdded": "2023-02-20 17:06:08"
+  },
+  {
+   "idProduct": 803303,
+   "name": "Atticus",
+   "idCategory": 51,
+   "categoryName": "Pokémon Single",
+   "idExpansion": 5928,
+   "idMetacard": 418753,
+   "dateAdded": "2024-12-05 19:55:07"
+  },
+  {
+   "idProduct": 803325,
+   "name": "Sylveon ex [Magical Charm | Angelite]",
+   "idCategory": 51,
+   "categoryName": "Pokémon Single",
+   "idExpansion": 5928,
+   "idMetacard": 439307,
+   "dateAdded": "2024-12-05 20:01:24"
+  },
+  {
+   "idProduct": 922296,
+   "name": "Zekrom ex [Slash | Voltage Burst]",
+   "idCategory": 51,
+   "categoryName": "Pokémon Single",
+   "idExpansion": 6928,
+   "idMetacard": 449955,
+   "dateAdded": "2026-11-05 15:14:53"
+  }
+ ]
+}

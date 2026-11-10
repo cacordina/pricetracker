@@ -1,0 +1,80 @@
+{
+ "version": 1,
+ "createdAt": "2026-11-09T02:50:26+0100",
+ "priceGuides": [
+  {
+   "idProduct": 271439,
+   "idCategory": 52,
+   "avg": 174.5,
+   "low": 150,
+   "trend": 222.26,
+   "avg1": null,
+   "avg7": null,
+   "avg30": null,
+   "avg-holo": null,
+   "low-holo": null,
+   "trend-holo": 3.93,
+   "avg1-holo": null,
+   "avg7-holo": null,
+   "avg30-holo": null
+  },
+  {
+   "idProduct": 698452,
+   "idCategory": 51,
+   "avg": null,
+   "low": 0.1,
+   "trend": 0.38,
+   "avg1": 0.2,
+   "avg7": 0.54,
+   "avg30": 0.53,
+   "avg-holo": null,
+   "low-holo": null,
+   "trend-holo": 0,
+   "avg1-holo": null,
+   "avg7-holo": null,
+   "avg30-holo": null
+  },
+  {
+   "idProduct": 803303,
+   "idCategory": 51,
+   "avg": 1.81,
+   "low": 0.75,
+   "trend": 1.7,
+   "avg1": 1.49,
+   "avg7": 1.63,
+   "avg30": 1.79,
+   "avg-holo": null,
+   "low-holo": null,
+   "trend-holo": 0,
+   "avg1-holo": null,
+   "avg7-holo": null,
+   "avg30-holo": null
+  },
+  {
+   "idProduct": 803325,
+   "idCategory": 51,
+   "avg": 124.37,
+   "low": 62,
+   "trend": 103.24,
+   "avg1": 105,
+   "avg7": 115.76,
+   "avg30": 119.76,
+   "avg-holo": null,
+   "low-holo": null,
+   "trend-holo": 0,
+   "avg1-holo": null,
+   "avg7-holo": null,
+   "avg30-holo": null
+  },
+  {
+   "idProduct": 922296,
+   "idCategory": 51,
+   "avg": null,
+   "low": null,
+   "trend": null,
+   "avg1": null,
+   "avg7": null,
+   "avg30": null
+  }
+ ]
+}
