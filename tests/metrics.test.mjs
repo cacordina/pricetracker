@@ -166,3 +166,23 @@ test('staleIds : lignes dont l’identifiant a été remplacé dans le catalogue
   assert.deepEqual(m.staleIds([{ id_product: 5 }], aliases), []);
   assert.deepEqual(m.staleIds([{ id_product: 10 }], undefined), []);
 });
+
+test('complétion : part des cartes d’une rareté possédées, au total et par extension', () => {
+  const cat = { sets: { A: { name: 'Alpha', date: '2026-01-01' }, B: { name: 'Beta', date: '2026-06-01' }, C: { name: 'Gamma' } }, cards: [
+    { id: 1, s: 'A', r: 'AR' }, { id: 2, s: 'A', r: 'AR' }, { id: 3, s: 'A', r: 'SAR' }, { id: 4, s: 'A', r: 'regular' },
+    { id: 5, s: 'B', r: 'AR' }, { id: 6, s: 'B', r: 'AR' }, { id: 7, s: 'B', r: 'AR' },
+    { id: 8, s: 'C', r: 'AR' },
+  ] };
+  const holdings = [{ id_product: 1, qty: 3 }, { id_product: 3, qty: 1 }, { id_product: 5, qty: 1 }, { id_product: 6, qty: 1 }, { id_product: 999, qty: 1 }];
+  assert.deepEqual(m.completion(holdings, cat, ['AR']), {
+    owned: 3, total: 6, pct: 50,
+    sets: [
+      { set: 'B', name: 'Beta', owned: 2, total: 3, pct: 67 },
+      { set: 'A', name: 'Alpha', owned: 1, total: 2, pct: 50 },
+      { set: 'C', name: 'Gamma', owned: 0, total: 1, pct: 0 },
+    ],
+  });
+  const both = m.completion(holdings, cat, ['AR', 'SAR']);
+  assert.deepEqual([both.owned, both.total, both.sets.find((s) => s.set === 'A').owned], [4, 7, 2]);
+  assert.deepEqual(m.completion([], { sets: {}, cards: [] }, ['AR']), { owned: 0, total: 0, pct: 0, sets: [] });
+});

@@ -117,3 +117,12 @@ input.small { width: 92px; padding: 6px 8px; text-align: right; }
 /* Vignette sans image dans une liste : trop petite pour du texte lisible */
 .row .noimg { font-size: 0; }
 .row .noimg::after { content: "?"; font-size: 16px; }
+
+/* Complétion */
+.meter-row { display: block; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.meter-row .line { display: flex; justify-content: space-between; gap: 10px; }
+.meter-row .line > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meter-row .line > span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.meter-row.total { border-top: 0; }
+.meter { height: 6px; border-radius: 99px; background: #ffffff1a; margin-top: 6px; overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 99px; background: var(--up); }

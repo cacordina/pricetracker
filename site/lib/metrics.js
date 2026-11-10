@@ -183,3 +183,26 @@ export function staleIds(rows, aliases) {
   if (!aliases) return [];
   return rows.filter((r) => aliases[r.id_product] !== undefined).map((r) => ({ from: r.id_product, to: aliases[r.id_product] }));
 }
+
+/**
+ * Taux de complétion pour un ensemble de raretés : cartes distinctes possédées / cartes existantes,
+ * au total et par extension (les plus récentes d'abord). Les doublons ne comptent qu'une fois.
+ */
+export function completion(holdings, catalog, rarities) {
+  const ownedIds = new Set(holdings.map((h) => h.id_product));
+  const bySet = new Map();
+  for (const card of catalog.cards) {
+    if (!rarities.includes(card.r)) continue;
+    const entry = bySet.get(card.s) ?? { set: card.s, name: catalog.sets[card.s]?.name ?? card.s, owned: 0, total: 0 };
+    entry.total += 1;
+    if (ownedIds.has(card.id)) entry.owned += 1;
+    bySet.set(card.s, entry);
+  }
+  const pct = (owned, total) => (total ? Math.round((owned / total) * 100) : 0);
+  const sets = [...bySet.values()]
+    .map((e) => ({ ...e, pct: pct(e.owned, e.total) }))
+    .sort((a, b) => (catalog.sets[b.set]?.date ?? '').localeCompare(catalog.sets[a.set]?.date ?? '') || a.set.localeCompare(b.set));
+  const owned = sets.reduce((n, e) => n + e.owned, 0);
+  const total = sets.reduce((n, e) => n + e.total, 0);
+  return { owned, total, pct: pct(owned, total), sets };
+}
