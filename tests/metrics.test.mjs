@@ -48,7 +48,8 @@ test('imageUrl et cardmarketUrl', () => {
   assert.equal(m.imageUrl(catalog.cards[0], catalog.sets), 'https://assets.tcgdex.net/ja/SV/SV8a/212/low.webp');
   assert.equal(m.imageUrl(catalog.cards[0], catalog.sets, 'high'), 'https://assets.tcgdex.net/ja/SV/SV8a/212/high.webp');
   assert.equal(m.imageUrl(catalog.cards[3], catalog.sets), null);
-  assert.equal(m.cardmarketUrl(803325), 'https://www.cardmarket.com/en/Pokemon/Products?idProduct=803325');
+  assert.equal(m.cardmarketUrl(803325), 'https://www.cardmarket.com/fr/Pokemon/Products?idProduct=803325');
+  assert.equal(m.cardmarketUrl(803325, { language: 7, sellerCountry: 12 }), 'https://www.cardmarket.com/fr/Pokemon/Products?idProduct=803325&language=7&sellerCountry=12');
 });
 test('historyFile identique côté site et côté ingestion', () => {
   for (const id of ['SV8a', 'sm3+', 'a/b', 'S-P']) assert.equal(m.historyFile(id), historyFile(id));

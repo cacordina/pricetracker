@@ -33,7 +33,11 @@ export function imageUrls(card, sets, quality = 'low') {
 
 export const imageUrl = (card, sets, quality = 'low') => imageUrls(card, sets, quality)[0] ?? null;
 
-export const cardmarketUrl = (idProduct) => `https://www.cardmarket.com/en/Pokemon/Products?idProduct=${idProduct}`;
+/** Fiche Cardmarket d'une carte ; `filters` ajoute des filtres d'offres (ex. { language: 7, sellerCountry: 12 }). */
+export function cardmarketUrl(idProduct, filters = {}) {
+  const params = new URLSearchParams({ idProduct, ...filters });
+  return `https://www.cardmarket.com/fr/Pokemon/Products?${params}`;
+}
 
 const normalize = (text) => String(text ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const haystacks = new WeakMap();

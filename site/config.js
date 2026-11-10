@@ -7,3 +7,7 @@ export const DATA_URL = './data';
 // les données sont protégées par la connexion et les règles d'accès de la base).
 export const SUPABASE_URL = 'https://nwxocmjgqdaawwhyzgon.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_u-WQDOefcddTj8n35khSsw_18AbLxFy';
+
+// Filtres appliqués aux offres quand on ouvre une fiche Cardmarket.
+// language : 7 = japonais. sellerCountry : 12 = France. Retirer une ligne pour lever le filtre.
+export const CARDMARKET_FILTERS = { language: 7, sellerCountry: 12 };

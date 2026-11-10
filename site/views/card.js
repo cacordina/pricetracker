@@ -3,13 +3,14 @@ import { loadHistory } from '../lib/data.js';
 import { COL, displayName, formatEuro, cardmarketUrl, RARITY_LABEL } from '../lib/metrics.js';
 import { cardImg, chips, onChip, pctSpan, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
+import { CARDMARKET_FILTERS } from '../config.js';
 
 export async function render(root, { catalog, snapshot, store, param }) {
   const id = Number(param);
   const card = catalog.byId.get(id);
   if (!card) {
     root.innerHTML = `<p class="state">Carte inconnue (n° ${esc(param)}).<br>Elle n’est pas, ou plus, dans le catalogue japonais.</p>
-      <a class="btn sec" href="${esc(cardmarketUrl(id))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>`;
+      <a class="btn sec" href="${esc(cardmarketUrl(id, CARDMARKET_FILTERS))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>`;
     return;
   }
   const row = snapshot.cards[id];
@@ -41,7 +42,8 @@ export async function render(root, { catalog, snapshot, store, param }) {
     <div class="legend"><span><i></i>tendance</span><span><i class="dash"></i>prix le plus bas</span></div>
     ${chips('range', RANGES, prefs.range)}
     <div class="muted">Le prix le plus bas peut correspondre à un exemplaire abîmé.</div>
-    <a class="btn" href="${esc(cardmarketUrl(id))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>
+    <a class="btn" href="${esc(cardmarketUrl(id, CARDMARKET_FILTERS))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>
+    <div class="muted" style="text-align:center;margin-top:4px">Offres filtrées : cartes japonaises, vendeurs en France</div>
     <div id="mine"></div>`;
 
   const chartEl = root.querySelector('#chart');
