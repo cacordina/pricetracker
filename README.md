@@ -80,7 +80,16 @@ Le site s'installe comme une application : sur iPhone, Safari → Partager → *
 - **Le service worker** (`site/sw.js`) garde une copie complète du code du site. À la publication, `scripts/build-sw.mjs` y inscrit la liste des fichiers et une version calculée sur le code : une publication qui ne change que les données ne réinstalle rien. Quand le code change, la nouvelle version s'installe en arrière-plan et le site se recharge au changement d'écran suivant.
 - Les données passent toujours par le réseau d'abord ; la copie gardée ne sert que si le réseau manque ou ne répond pas en 6 secondes.
 
+## Alertes de prix cible
 
+Écran Envies → *Alertes de prix cible* → *Activer* : cet appareil reçoit une notification le matin où une carte de vos envies passe sous son prix cible (ou l'atteint). Une seule par passage sous la cible, pas tous les jours où elle y reste ; plusieurs cartes le même jour font une seule notification. Toucher la notification ouvre la carte, ou les envies.
+
+- Sur iPhone, il faut iOS 16.4 ou plus et le site installé sur l'écran d'accueil ; l'activation se fait depuis l'icône. Sur Android et sur ordinateur, depuis le navigateur.
+- La tâche quotidienne envoie les alertes (`scripts/notify.mjs`) juste après avoir enregistré un nouveau jour ; le passage de rattrapage de la mi-journée n'envoie rien deux fois.
+- Réglages : table `push_subscriptions` (`supabase/migrations/0003_push.sql`) ; secrets du dépôt `SUPABASE_SERVICE_KEY` (clé secrète Supabase, qui lit les envies de tous les comptes) et `VAPID_PRIVATE_KEY` ; variables `SUPABASE_URL` et `VAPID_SUBJECT` (facultative, `mailto:` d'une adresse de contact pour les services push). La clé publique VAPID est dans `site/config.js`. Sans ces secrets, l'étape dit ce qui manque et n'envoie rien.
+- Un appareil désabonné ou désinstallé est retiré de la table au premier envoi refusé. Se déconnecter du site désabonne l'appareil.
+
+## Scanner de cartes (expérimental)
 
 Écran `#/scan`, accessible depuis la recherche. Dès l'ouverture, sans appui, la caméra cherche la série et le numéro imprimés en bas à gauche de la carte (« sv8a 212/187 ») avec Tesseract.js, chargé depuis jsDelivr au premier usage (environ 6 Mo). Trois passes de lecture par image, cumulées d'une image à l'autre ; une carte est retenue quand son numéro concorde avec la série ou le total officiel. À la première carte reconnue, l'image se fige et le résultat s'affiche (prix, ajout à la collection, fiche) ; « Scanner une autre carte » relance. Les cartes à fond sombre et chargé sont les plus difficiles à lire.
 
@@ -91,4 +100,3 @@ Le site s'installe comme une application : sur iPhone, Safari → Partager → *
 - L'historique commence à la mise en service.
 - La courbe de la collection ne fait entrer une carte qu'à sa date d'achat quand elle est renseignée ; sans date, la carte compte depuis le début de l'historique. La variation affichée au-dessus ne mesure que l'évolution des prix des cartes possédées aujourd'hui, pas les achats.
 - Le prix d'achat est un prix par exemplaire : pour plusieurs exemplaires payés différemment, on saisit la moyenne.
-- Les alertes de prix cible sont visibles dans le site (pastille sur l'onglet Envies), sans notification.
