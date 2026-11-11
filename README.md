@@ -75,6 +75,10 @@ Node 22 ou plus, aucune dépendance à installer.
 - `supabase/migrations/0001_init.sql` : tables `holdings` et `wishes` et leurs règles d'accès.
 - `supabase/migrations/0002_purchase.sql` : prix (`paid_cents`, par exemplaire) et date d'achat (`bought_on`) des cartes possédées, saisis sur la fiche carte ; la collection en tire la somme payée et la plus-value.
 
+## Parcourir les extensions
+
+Écran `#/extensions` (accueil, recherche) : toutes les extensions du catalogue, des plus récentes aux plus anciennes, groupées par année, filtrables par code ou nom ; pour chacune, la valeur de l'extension complète (un exemplaire de chaque carte cotée) et la progression de la collection. Une extension (`#/extension/SV8a`, aussi depuis la fiche carte ou l'album) montre toutes ses cartes avec leur prix, par numéro ou par prix, filtrées par rareté et possédées ou manquantes.
+
 ## Application et hors connexion
 
 Le site s'installe comme une application : sur iPhone, Safari → Partager → *Sur l'écran d'accueil* ; sur Android, Chrome propose *Installer l'application*. Il s'ouvre alors en plein écran, avec son icône.

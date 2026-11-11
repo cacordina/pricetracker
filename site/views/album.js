@@ -49,7 +49,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
 
   function section(group) {
     return `<section id="set-${esc(group.set)}">
-      <h2 class="toolbar"><span>${esc(group.set)} <span class="muted">${esc(group.name)}</span></span>
+      <h2 class="toolbar"><a href="#/extension/${encodeURIComponent(group.set)}">${esc(group.set)} <span class="muted">${esc(group.name)}</span> <span class="muted">›</span></a>
         <span class="muted">${connected ? `${group.owned}/${group.total}${group.owned === group.total ? ' ✓' : ''}` : group.total}</span></h2>
       <div class="grid">${group.cards.map((item) => tile(item)).join('')}</div>
     </section>`;

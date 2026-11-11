@@ -10,6 +10,7 @@ import { frDate } from '../lib/chart.js';
 const ICON = {
   add: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.500" width="14" height="17" rx="2"/><path d="M12 8.500v7M8.500 12h7"/></svg>',
   album: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.500" y="4" width="7" height="7" rx="1.200"/><rect x="13.500" y="4" width="7" height="7" rx="1.200"/><rect x="3.500" y="13" width="7" height="7" rx="1.200"/><rect x="13.500" y="13" width="7" height="7" rx="1.200"/></svg>',
+  sets: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 4l8 3.5-8 3.5z"/><path d="m4 12 8 3.500 8-3.500"/><path d="m4 16.500 8 3.500 8-3.500"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.800-3.800"/></svg>',
 };
 
@@ -30,6 +31,7 @@ export async function render(root, { catalog, snapshot, store }) {
     <div class="quick">
       <a href="#/ajout">${ICON.add}Ajouter par série</a>
       <a href="#/album">${ICON.album}Toutes les AR</a>
+      <a href="#/extensions">${ICON.sets}Extensions</a>
       <a href="#/recherche">${ICON.search}Chercher une carte</a>
     </div>
     ${wishBlock()}

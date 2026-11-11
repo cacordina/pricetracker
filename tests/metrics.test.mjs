@@ -295,3 +295,27 @@ test('prix retenu : moyenne 7 j, sinon 30 j, sinon tendance — même règle que
   for (const r of rows) assert.equal(m.priceOf(r), mainPrice({ t: r[0], a7: r[3], a30: r[4] }));
   assert.equal(m.priceOf(undefined), null);
 });
+
+test('extensions : vue d’ensemble, les plus récentes d’abord', () => {
+  const holdings = [{ id_product: 803325, qty: 2 }, { id_product: 4, qty: 1 }];
+  const cat = { ...catalog, sets: { ...catalog.sets, SV8a: { ...catalog.sets.SV8a, date: '2025-01-17' }, M2: { ...catalog.sets.M2, date: '2025-09-26' } } };
+  const list = m.setsOverview(cat, snapshot, holdings);
+  assert.deepEqual(list.map((e) => [e.set, e.date, e.total, e.owned, e.valueCents, e.top?.id]), [
+    ['M2', '2025-09-26', 2, 1, 1000 + 5200, 5],              // carte 4 : moyenne 30 j (pas de moyenne 7 j)
+    ['SV8a', '2025-01-17', 3, 1, 11576 + 163 + 1000, 803325],
+  ]);
+  assert.equal(m.setsOverview(cat, snapshot)[0].owned, 0);
+});
+
+test('extension : cartes, filtres et tris', () => {
+  const holdings = [{ id_product: 803303, qty: 3 }];
+  const ids = (list) => list.map((i) => i.card.id);
+  assert.deepEqual(ids(m.setCards(catalog, snapshot, holdings, 'SV8a')), [803303, 803325, 3]); // 190, 212, 230
+  assert.deepEqual(ids(m.setCards(catalog, snapshot, holdings, 'SV8a', { sort: 'desc' })), [803325, 3, 803303]);
+  assert.deepEqual(ids(m.setCards(catalog, snapshot, holdings, 'SV8a', { sort: 'asc' })), [803303, 3, 803325]);
+  assert.deepEqual(ids(m.setCards(catalog, snapshot, holdings, 'SV8a', { rarities: ['AR', 'SAR'] })), [803303, 803325]);
+  assert.deepEqual(ids(m.setCards(catalog, snapshot, holdings, 'SV8a', { show: 'missing' })), [803325, 3]);
+  assert.deepEqual(m.setCards(catalog, snapshot, holdings, 'SV8a', { show: 'owned' })[0], { card: catalog.cards[1], qty: 3, price: 163 });
+  const unpriced = { ...snapshot, cards: { ...snapshot.cards, 803325: undefined } };
+  assert.deepEqual(ids(m.setCards(catalog, unpriced, [], 'SV8a', { sort: 'asc' })), [803303, 3, 803325]); // sans prix à la fin
+});

@@ -15,9 +15,11 @@ const ROUTES = {
   recherche: () => import('./views/search.js'),
   scan: () => import('./views/scan.js'),
   carte: () => import('./views/card.js'),
+  extensions: () => import('./views/sets.js'),
+  extension: () => import('./views/set.js'),
   connexion: () => import('./views/login.js'),
 };
-const TAB_OF = { ajout: 'collection', album: 'collection', recherche: null, carte: null, connexion: null };
+const TAB_OF = { ajout: 'collection', album: 'collection', recherche: null, carte: null, connexion: null, extensions: null, extension: null };
 
 const view = document.getElementById('view');
 let renderId = 0;

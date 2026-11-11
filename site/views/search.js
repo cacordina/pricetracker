@@ -11,6 +11,7 @@ export async function render(root, { catalog, snapshot }) {
     <h1>Recherche</h1>
     <input type="search" id="q" placeholder="Nom, extension, numéro — ex. « sv8a 212 »" value="${esc(lastQuery)}" autocomplete="off" enterkeyhint="search" aria-label="Rechercher une carte">
     <div id="filters"></div>
+    <a class="link" href="#/extensions" style="display:inline-block;margin-top:6px">Parcourir les extensions ›</a>
     <div id="results"></div>`;
   const input = root.querySelector('#q');
   const filters = root.querySelector('#filters');

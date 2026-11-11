@@ -44,7 +44,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
         <h1 style="margin-bottom:2px">${esc(displayName(card))}</h1>
         <div class="muted">${esc(card.ja)}${card.fr && card.en ? ` · ${esc(card.en.replace(/\s*\[.*\]\s*$/, ""))}` : ""}</div>
         <div class="muted">${esc(card.s)} ${esc(card.n)}${rarityTag(card)}</div>
-        <div class="muted">${esc(set?.name ?? '')}</div>
+        <a class="muted" href="#/extension/${encodeURIComponent(card.s)}" style="text-decoration:underline">${esc(set?.name ?? card.s)}</a>
         ${priced ? `
           <div class="big" style="margin-top:10px">${formatEuro(price)}</div>
           <div class="muted" style="font-size:12px">${SOURCE_LABEL[source]}</div>

@@ -370,6 +370,48 @@ export function albumByPrice(catalog, holdings, snapshot, { rarities, show = 'al
   });
 }
 
+/**
+ * Vue d'ensemble des extensions, les plus récentes d'abord : nombre de cartes du catalogue, cartes possédées
+ * (distinctes), valeur de l'extension complète (un exemplaire de chaque carte cotée) et carte la plus chère.
+ */
+export function setsOverview(catalog, snapshot, holdings = []) {
+  const owned = new Set(holdings.map((h) => h.id_product));
+  const bySet = new Map();
+  for (const card of catalog.cards) {
+    const entry = bySet.get(card.s) ?? { set: card.s, name: catalog.sets[card.s]?.name ?? card.s, date: catalog.sets[card.s]?.date ?? null, total: 0, owned: 0, valueCents: 0, top: null, topCents: -1 };
+    const price = priceOf(snapshot.cards[card.id]);
+    entry.total += 1;
+    if (owned.has(card.id)) entry.owned += 1;
+    if (price !== null) {
+      entry.valueCents += price;
+      if (price > entry.topCents) { entry.top = card; entry.topCents = price; }
+    }
+    bySet.set(card.s, entry);
+  }
+  return [...bySet.values()]
+    .map(({ topCents, ...e }) => e)
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || a.set.localeCompare(b.set));
+}
+
+/**
+ * Cartes d'une extension avec quantité possédée et prix retenu.
+ * rarities : null = toutes ; show : "all" | "missing" | "owned" ; sort : "num" | "desc" | "asc" (sans prix à la fin).
+ */
+export function setCards(catalog, snapshot, holdings, setId, { rarities = null, show = 'all', sort = 'num' } = {}) {
+  const qty = new Map(holdings.map((h) => [h.id_product, h.qty]));
+  const items = catalog.cards
+    .filter((c) => c.s === setId && (!rarities || rarities.includes(c.r)))
+    .map((card) => ({ card, qty: qty.get(card.id) ?? 0, price: priceOf(snapshot.cards[card.id]) }))
+    .filter((i) => show === 'all' || (show === 'owned') === i.qty > 0);
+  const byNumber = (a, b) => a.card.n.localeCompare(b.card.n, 'fr', { numeric: true });
+  if (sort === 'num') return items.sort(byNumber);
+  const sign = sort === 'asc' ? 1 : -1;
+  return items.sort((a, b) => {
+    if (a.price === null || b.price === null) return (a.price === null) - (b.price === null) || byNumber(a, b);
+    return sign * (a.price - b.price) || byNumber(a, b);
+  });
+}
+
 /** Les `n` cartes possédées au prix unitaire le plus élevé (pour la vitrine de l'accueil). */
 export function topOwned(holdings, catalog, snapshot, n = 3) {
   return holdings
