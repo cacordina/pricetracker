@@ -72,7 +72,15 @@ Node 22 ou plus, aucune dépendance à installer.
 - `supabase/migrations/0001_init.sql` : tables `holdings` et `wishes` et leurs règles d'accès.
 - `supabase/migrations/0002_purchase.sql` : prix (`paid_cents`, par exemplaire) et date d'achat (`bought_on`) des cartes possédées, saisis sur la fiche carte ; la collection en tire la somme payée et la plus-value.
 
-## Scanner de cartes (expérimental)
+## Application et hors connexion
+
+Le site s'installe comme une application : sur iPhone, Safari → Partager → *Sur l'écran d'accueil* ; sur Android, Chrome propose *Installer l'application*. Il s'ouvre alors en plein écran, avec son icône.
+
+- **Hors connexion**, il s'ouvre avec les derniers prix reçus (un bandeau donne leur date). La collection et les envies affichées sont la dernière copie reçue, gardée sur l'appareil et effacée à la déconnexion ; on ne peut pas les modifier sans réseau. Les images des cartes, les polices et le scanner ont besoin du réseau.
+- **Le service worker** (`site/sw.js`) garde une copie complète du code du site. À la publication, `scripts/build-sw.mjs` y inscrit la liste des fichiers et une version calculée sur le code : une publication qui ne change que les données ne réinstalle rien. Quand le code change, la nouvelle version s'installe en arrière-plan et le site se recharge au changement d'écran suivant.
+- Les données passent toujours par le réseau d'abord ; la copie gardée ne sert que si le réseau manque ou ne répond pas en 6 secondes.
+
+
 
 Écran `#/scan`, accessible depuis la recherche. Dès l'ouverture, sans appui, la caméra cherche la série et le numéro imprimés en bas à gauche de la carte (« sv8a 212/187 ») avec Tesseract.js, chargé depuis jsDelivr au premier usage (environ 6 Mo). Trois passes de lecture par image, cumulées d'une image à l'autre ; une carte est retenue quand son numéro concorde avec la série ou le total officiel. À la première carte reconnue, l'image se fige et le résultat s'affiche (prix, ajout à la collection, fiche) ; « Scanner une autre carte » relance. Les cartes à fond sombre et chargé sont les plus difficiles à lire.
 

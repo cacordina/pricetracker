@@ -59,6 +59,7 @@ jobs:
           cp -R site/. _site/
           cp data/catalog.json data/snapshot.json _site/data/
           cp -R data/history _site/data/history
+          node scripts/build-sw.mjs _site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

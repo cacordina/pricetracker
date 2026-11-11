@@ -6,6 +6,13 @@
   <meta name="theme-color" content="#0f1226">
   <meta name="robots" content="noindex">
   <title>Carnet JP</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Carnet JP">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
@@ -20,6 +27,7 @@
     <a class="icon-btn" href="#/connexion" data-top="connexion" aria-label="Mon compte">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg></a>
   </header>
+  <div class="banner warn offline" id="offline" role="status" hidden></div>
   <main id="view" aria-live="polite"><p class="state">Chargement…</p></main>
   <nav class="tabs" aria-label="Navigation principale">
     <a href="#/accueil" data-tab="accueil">

@@ -79,6 +79,7 @@ export async function signUp(email, password) {
 }
 
 export async function signOut() {
+  forgetCopies();
   if (isConfigured()) await sb().auth.signOut().catch(() => {});
 }
 
@@ -95,10 +96,36 @@ export function onAuthChange(callback) {
   });
 }
 
+// Dernière collection et dernières envies reçues, gardées sur l'appareil pour les consulter hors connexion.
+const OFFLINE_PREFIX = 'carnet:offline:';
+
+/** Lit une liste ; si le service est injoignable, rend la dernière copie gardée pour cet utilisateur. */
+async function readWithCopy(what, build) {
+  const session = await requireSession();
+  const key = `${OFFLINE_PREFIX}${what}:${session.user.id}`;
+  try {
+    const data = await run(build);
+    try { localStorage.setItem(key, JSON.stringify(data)); } catch { /* stockage plein ou bloqué : tant pis */ }
+    return data;
+  } catch (err) {
+    if (err.code === 'network') {
+      let copy = null;
+      try { copy = JSON.parse(localStorage.getItem(key) ?? 'null'); } catch { /* copie illisible */ }
+      if (Array.isArray(copy)) return copy;
+    }
+    throw err;
+  }
+}
+
+function forgetCopies() {
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith(OFFLINE_PREFIX)) localStorage.removeItem(key);
+  } catch { /* stockage bloqué */ }
+}
+
 /** @returns {Promise<Array<{ id_product: number, qty: number, paid_cents: number | null, bought_on: string | null }>>} */
 export async function listHoldings() {
-  await requireSession();
-  return run((db) => db.from('holdings').select('id_product, qty, paid_cents, bought_on').order('id_product'));
+  return readWithCopy('holdings', (db) => db.from('holdings').select('id_product, qty, paid_cents, bought_on').order('id_product'));
 }
 
 /** Prix d'achat par exemplaire (centimes) et date d'achat ("AAAA-MM-JJ") d'une carte possédée ; null efface. */
@@ -124,8 +151,7 @@ export async function setHolding(idProduct, qty) {
 
 /** @returns {Promise<Array<{ id_product: number, target_cents: number | null }>>} */
 export async function listWishes() {
-  await requireSession();
-  return run((db) => db.from('wishes').select('id_product, target_cents').order('created_at'));
+  return readWithCopy('wishes', (db) => db.from('wishes').select('id_product, target_cents').order('created_at'));
 }
 
 export async function setWish(idProduct, targetCents) {

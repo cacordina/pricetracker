@@ -57,6 +57,7 @@ h2 { font-size: 17px; font-weight: 700; margin: 26px 0 10px; }
 .state { color: var(--muted); text-align: center; padding: 44px 8px; }
 .banner { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 13px; font-size: 13px; color: var(--muted); margin: 10px 0; }
 .banner.warn { border-color: #ffb34766; color: var(--warn); }
+.banner.offline { max-width: 728px; margin: 10px max(16px, calc((100% - 728px) / 2)) 0; }
 
 /* Barre d'onglets */
 .tabs {

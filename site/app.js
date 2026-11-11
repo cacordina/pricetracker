@@ -63,10 +63,31 @@ async function refreshWishDot() {
   }
 }
 
-window.addEventListener('hashchange', render);
+/** Bandeau « hors connexion », avec la date des prix affichés. */
+async function refreshOffline() {
+  const banner = document.getElementById('offline');
+  if (navigator.onLine) { banner.hidden = true; return; }
+  const date = await loadSnapshot().then((s) => s.date, () => null);
+  banner.textContent = `Hors connexion${date ? ` : prix du ${frDate(date)}` : ''}. Collection et envies en lecture seule.`;
+  banner.hidden = false;
+}
+
+// Service worker : site utilisable sans réseau. Quand une nouvelle version du site prend la main,
+// on recharge au changement d'écran suivant plutôt que de mêler l'ancien code et le nouveau.
+let updateReady = false;
+if ('serviceWorker' in navigator) {
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) updateReady = true; });
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Service worker :', err)));
+}
+
+window.addEventListener('hashchange', () => (updateReady ? location.reload() : render()));
+window.addEventListener('online', () => { refreshOffline(); refreshWishDot(); });
+window.addEventListener('offline', refreshOffline);
 window.addEventListener('wishes-changed', refreshWishDot);
 store.onAuthChange(() => { render(); refreshWishDot(); });
 render();
 refreshWishDot();
+refreshOffline();
 
 export { frDate };
