@@ -1,5 +1,5 @@
 // Une extension : toutes ses cartes avec leur prix, possédées ou non, par numéro ou par prix.
-import { setsOverview, setCards, formatEuro, displayName } from '../lib/metrics.js';
+import { setsOverview, setCards, seriesOf, formatEuro, displayName } from '../lib/metrics.js';
 import { cardImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
 
@@ -31,7 +31,8 @@ export async function render(root, { catalog, snapshot, store, param }) {
     });
     root.innerHTML = `
       <div class="toolbar"><h1>${esc(setId)}</h1><a class="link" href="#/extensions">Extensions</a></div>
-      <div class="muted">${esc(set.name)}${set.date ? ` · sortie le ${esc(frDate(set.date))}` : ''}</div>
+      <div class="muted">${esc(set.name)}</div>
+      <div class="muted">${esc(seriesOf(setId, set.date).name)}${set.date ? ` · sortie le ${esc(frDate(set.date))}` : ''}</div>
       <div class="kv">
         <span>Cartes</span><span>${info.total}${set.official ? ` · ${set.official} numérotées` : ''}</span>
         <span>Extension complète</span><span>${formatEuro(info.valueCents || null)}</span>

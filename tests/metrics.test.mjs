@@ -319,3 +319,32 @@ test('extension : cartes, filtres et tris', () => {
   const unpriced = { ...snapshot, cards: { ...snapshot.cards, 803325: undefined } };
   assert.deepEqual(ids(m.setCards(catalog, unpriced, [], 'SV8a', { sort: 'asc' })), [803303, 3, 803325]); // sans prix à la fin
 });
+
+test('grandes séries : d’après le code, sinon d’après la date', () => {
+  const id = (setId, date) => m.seriesOf(setId, date).id;
+  assert.equal(id('M2a', '2025-11-15'), 'mega');
+  assert.equal(id('M-P', '2025-07-01'), 'mega');
+  assert.equal(id('mEE', '2026-07-31'), 'mega');
+  assert.equal(id('MBG', '2025-09-26'), 'mega');
+  assert.equal(id('SV8a', '2024-12-06'), 'sv');
+  assert.equal(id('svAW', '2023-01-20'), 'sv');
+  assert.equal(id('SVOM', '2025-02-21'), 'sv');
+  assert.equal(id('WCS23', '2023-07-01'), 'sv');
+  assert.equal(id('S12a', '2022-12-02'), 'ss'); // sortie après SV-P, mais bien Épée et Bouclier
+  assert.equal(id('sp5', '2021-08-01'), 'ss');
+  assert.equal(id('s8a-P', '2021-10-22'), 'ss');
+  assert.equal(id('SM12a', '2019-10-04'), 'sm');
+  assert.equal(id('smJ', '2018-12-01'), 'sm');
+  assert.equal(id('CP5', '2016-07-01'), 'xy');
+  assert.equal(id('MMB', '2015-08-01'), 'xy'); // code en M mais 2015 : par la date
+  assert.equal(id('MDB', '2012-09-01'), 'bw');
+  assert.equal(id('EBB', '2013-07-01'), 'bw');
+  assert.equal(id('BW1', '2010-12-03'), 'bw');
+  assert.equal(id('XY-Bx', '2013-12-06'), 'xy');
+  assert.equal(id('XY', '2017-04-21'), 'sm'); // « SM: The Best of XY »
+  assert.equal(id('BW', '2019-10-04'), 'sm'); // « BW: Extra Regulation Box »
+  assert.equal(id('L1: HG', '2009-10-01'), 'hgss');
+  assert.equal(id('E', '2009-11-01'), 'hgss');
+  assert.equal(id('PMCG1', '1996-10-20'), 'old');
+  assert.equal(id('ZZZ', null), 'old');
+});

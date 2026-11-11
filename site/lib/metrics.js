@@ -370,6 +370,37 @@ export function albumByPrice(catalog, holdings, snapshot, { rarities, show = 'al
   });
 }
 
+/** Grandes séries japonaises, de la plus récente à la plus ancienne ; `from` = première sortie (secours par date). */
+export const SERIES = [
+  { id: 'mega', name: 'Méga-Évolution', short: 'Méga', from: '2025-07-01' },
+  { id: 'sv', name: 'Écarlate et Violet', short: 'EV', from: '2022-11-01' },
+  { id: 'ss', name: 'Épée et Bouclier', short: 'EB', from: '2019-11-01' },
+  { id: 'sm', name: 'Soleil et Lune', short: 'SL', from: '2016-11-01' },
+  { id: 'xy', name: 'XY', short: 'XY', from: '2013-12-01' },
+  { id: 'bw', name: 'Noir & Blanc', short: 'N&B', from: '2010-12-01' },
+  { id: 'hgss', name: 'HeartGold SoulSilver', short: 'HGSS', from: '2009-09-01' },
+  { id: 'old', name: 'Séries plus anciennes', short: 'Anciennes', from: '' },
+];
+
+// Le code de l'extension dit presque toujours sa série ; l'ordre compte (« SV » avant « S », « SM » avant « S »).
+const SERIES_BY_CODE = [
+  [/^(SV|sv|WCS)/, 'sv'],
+  [/^(SM|sm)/, 'sm'],
+  [/^(S\d|S-P|SI$|s)/, 'ss'],
+  [/^(M\d|M-P|MC$|MP\d|MB[DG]$|MF$|m[A-Z])/, 'mega'],
+  // « XY » et « BW » tout courts sont des rééditions sorties pendant Soleil et Lune : rangées par leur date.
+  [/^(XY.|X30|Y30|CP\d)/, 'xy'],
+  [/^(BW.|EBB)/, 'bw'],
+  [/^(L\d|LL|L-P)/, 'hgss'],
+];
+
+/** Grande série d'une extension, d'après son code, sinon d'après sa date de sortie. */
+export function seriesOf(setId, date) {
+  const byCode = SERIES_BY_CODE.find(([re]) => re.test(setId))?.[1];
+  if (byCode) return SERIES.find((x) => x.id === byCode);
+  return SERIES.find((x) => (date ?? '') >= x.from) ?? SERIES.at(-1);
+}
+
 /**
  * Vue d'ensemble des extensions, les plus récentes d'abord : nombre de cartes du catalogue, cartes possédées
  * (distinctes), valeur de l'extension complète (un exemplaire de chaque carte cotée) et carte la plus chère.

@@ -77,7 +77,7 @@ Node 22 ou plus, aucune dépendance à installer.
 
 ## Parcourir les extensions
 
-Écran `#/extensions` (accueil, recherche) : toutes les extensions du catalogue, des plus récentes aux plus anciennes, groupées par année, filtrables par code ou nom ; pour chacune, la valeur de l'extension complète (un exemplaire de chaque carte cotée) et la progression de la collection. Une extension (`#/extension/SV8a`, aussi depuis la fiche carte ou l'album) montre toutes ses cartes avec leur prix, par numéro ou par prix, filtrées par rareté et possédées ou manquantes.
+Écran `#/extensions` (accueil, recherche) : toutes les extensions du catalogue, rangées par grande série (Méga-Évolution, Écarlate et Violet, Épée et Bouclier, Soleil et Lune, XY, Noir & Blanc, HeartGold SoulSilver), des plus récentes aux plus anciennes, filtrables par série, code ou nom. La série vient du code de l'extension (`seriesOf`, `site/lib/metrics.js`), à défaut de sa date de sortie ; pour chacune, la valeur de l'extension complète (un exemplaire de chaque carte cotée) et la progression de la collection. Une extension (`#/extension/SV8a`, aussi depuis la fiche carte ou l'album) montre toutes ses cartes avec leur prix, par numéro ou par prix, filtrées par rareté et possédées ou manquantes.
 
 ## Application et hors connexion
 
