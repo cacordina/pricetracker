@@ -78,6 +78,10 @@ let updateReady = false;
 if ('serviceWorker' in navigator) {
   const hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) updateReady = true; });
+  // Notification touchée alors que le site était ouvert : le service worker demande d'aller à la carte.
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'open') location.hash = new URL(event.data.url).hash;
+  });
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Service worker :', err)));
 }
 

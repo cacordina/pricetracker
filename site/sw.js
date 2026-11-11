@@ -4,6 +4,7 @@
 //   changement d'écran suivant (app.js), pour ne jamais mélanger deux versions.
 // - Données (prix, catalogue, historiques) : réseau d'abord, dernière copie reçue si le réseau manque.
 // - Tout le reste (Supabase, images des cartes, polices, Tesseract) passe sans être touché.
+// - Notifications : alertes de prix cible envoyées par la tâche quotidienne (scripts/notify.mjs).
 const VERSION = 'dev';
 const PRECACHE = [];
 
@@ -73,3 +74,31 @@ async function networkFirst(request, cacheName, timeout, key = request) {
     return fallback();
   }
 }
+
+self.addEventListener('push', (event) => {
+  let message = {};
+  try { message = event.data?.json() ?? {}; } catch { /* message illisible : texte par défaut */ }
+  event.waitUntil(self.registration.showNotification(message.title || 'Carnet JP', {
+    body: message.body || '',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    tag: message.tag || 'carnet',
+    lang: 'fr',
+    data: { url: message.url || '#/envies' },
+  }));
+});
+
+// Toucher la notification ouvre la carte (ou les envies) dans le site déjà ouvert, sinon dans une nouvelle fenêtre.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || '#/envies', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const client = open.find((c) => c.url.startsWith(self.registration.scope));
+    if (client) {
+      await client.focus();
+      return client.navigate(url).catch(() => client.postMessage({ type: 'open', url }));
+    }
+    return self.clients.openWindow(url);
+  })());
+});

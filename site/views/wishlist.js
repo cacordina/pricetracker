@@ -3,6 +3,7 @@ import { loadHistories } from '../lib/data.js';
 import { COL, wishStatus, sortWishes, formatEuro } from '../lib/metrics.js';
 import { cardRow, cardImg, esc, storeProblem } from '../lib/ui.js';
 import { staleBanner, wireStale } from '../lib/migrate.js';
+import { pushSupport, currentSubscription, enablePush, disablePush } from '../lib/push.js';
 
 export async function render(root, { catalog, snapshot, store, refresh }) {
   let wishes;
@@ -34,8 +35,10 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     <div class="muted">${under
       ? `${under} carte${under > 1 ? 's' : ''} sous votre prix cible`
       : 'Aucune carte sous votre prix cible pour l’instant'}</div>
+    <div id="alerts"></div>
     ${items.map(line).join('')}`;
   wireStale(root, wishes, catalog.aliases, 'wishes', store, refresh);
+  renderAlerts(root.querySelector('#alerts'), store);
 
   function line({ wish, card, row, status }) {
     if (!card) {
@@ -52,4 +55,48 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
       : `Cible ${formatEuro(wish.target_cents)}${status.gapCents > 0 ? ` · encore ${formatEuro(status.gapCents)} au-dessus` : ''}`;
     return cardRow(card, catalog.sets, { trend: row?.[COL.trend] ?? null, change: row?.[COL.d7] ?? null, sub: esc(sub), tags });
   }
+}
+
+const SUPPORT_TEXT = {
+  'ios-install': 'Sur iPhone, installez d’abord le site sur l’écran d’accueil (Safari → Partager → Sur l’écran d’accueil), puis ouvrez-le depuis son icône.',
+  unsupported: 'Ce navigateur ne gère pas les notifications.',
+  denied: 'Les notifications sont bloquées pour ce site : autorisez-les dans les réglages du navigateur, puis revenez ici.',
+};
+
+/** Interrupteur des alertes de prix cible pour cet appareil ; n'empêche jamais l'affichage des envies. */
+async function renderAlerts(box, store) {
+  const support = pushSupport();
+  if (support === 'config') return;
+  let on = false;
+  if (support === 'ok') {
+    const subscription = await currentSubscription().catch(() => null);
+    on = Boolean(subscription);
+    // Garde l'abonnement rattaché au compte connecté (il a pu être retiré, ou appartenir à un autre compte).
+    if (subscription) store.savePushSubscription(subscription).catch(() => {});
+  }
+
+  function draw(message = '') {
+    box.innerHTML = `<div class="box">
+      <div class="line"><span>${on ? '🔔 Alertes de prix cible activées' : 'Alertes de prix cible'}</span>
+        ${support === 'ok' ? `<button type="button" class="link" id="alerts-toggle">${on ? 'Désactiver' : 'Activer'}</button>` : ''}</div>
+      <div class="muted" style="margin-top:4px">${support === 'ok'
+        ? (on ? 'Une notification sur cet appareil le matin où une carte passe sous sa cible.'
+              : 'Recevez une notification sur cet appareil quand une carte passe sous sa cible.')
+        : SUPPORT_TEXT[support]}</div>
+      ${message ? `<p class="error">${esc(message)}</p>` : ''}</div>`;
+    const button = box.querySelector('#alerts-toggle');
+    if (!button) return;
+    button.onclick = async () => {
+      button.disabled = true;
+      try {
+        if (on) await disablePush(store);
+        else await enablePush(store);
+        on = !on;
+        draw();
+      } catch (err) {
+        draw(err.message);
+      }
+    };
+  }
+  draw();
 }

@@ -80,6 +80,14 @@ export async function signUp(email, password) {
 
 export async function signOut() {
   forgetCopies();
+  // Cet appareil ne doit plus recevoir les alertes du compte qu'on quitte.
+  try {
+    const subscription = await (await navigator.serviceWorker?.getRegistration())?.pushManager?.getSubscription();
+    if (subscription) {
+      await removePushSubscription(subscription.endpoint).catch(() => {});
+      await subscription.unsubscribe();
+    }
+  } catch { /* pas de service worker ou de notifications : rien à faire */ }
   if (isConfigured()) await sb().auth.signOut().catch(() => {});
 }
 
@@ -165,4 +173,16 @@ export async function setWish(idProduct, targetCents) {
 export async function removeWish(idProduct) {
   await requireSession();
   await run((db) => db.from('wishes').delete().eq('id_product', idProduct));
+}
+
+/** Enregistre l'abonnement aux notifications de cet appareil (objet rendu par pushManager.subscribe). */
+export async function savePushSubscription(subscription) {
+  await requireSession();
+  const { endpoint, keys } = subscription.toJSON();
+  await run((db) => db.from('push_subscriptions').upsert({ endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: 'endpoint' }));
+}
+
+export async function removePushSubscription(endpoint) {
+  await requireSession();
+  await run((db) => db.from('push_subscriptions').delete().eq('endpoint', endpoint));
 }
