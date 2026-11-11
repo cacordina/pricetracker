@@ -1,8 +1,9 @@
-// Album : toutes les cartes AR (et/ou SAR) du catalogue, par extension, possédées ou non.
-import { COL, album, formatEuro, displayName } from '../lib/metrics.js';
+// Album : toutes les cartes AR (et/ou SAR) du catalogue, possédées ou non, par extension ou par prix.
+import { COL, album, albumByPrice, formatEuro, displayName } from '../lib/metrics.js';
 import { cardImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 
 const SHOW = [{ value: 'all', label: 'Toutes' }, { value: 'missing', label: 'Manquantes' }, { value: 'owned', label: 'Possédées' }];
+const SORT = [{ value: 'set', label: 'Par extension' }, { value: 'desc', label: 'Prix ↓' }, { value: 'asc', label: 'Prix ↑' }];
 
 export async function render(root, { catalog, snapshot, store, param }) {
   // L'album reste consultable sans connexion : on n'affiche alors simplement pas ce qui est possédé.
@@ -13,8 +14,10 @@ export async function render(root, { catalog, snapshot, store, param }) {
   } catch {
     connected = false;
   }
-  const prefs = loadPrefs('album', { rarities: ['AR'], show: 'all' });
+  const prefs = loadPrefs('album', { rarities: ['AR'], show: 'all', sort: 'set' });
   if (!connected) prefs.show = 'all';
+  // Arrivée sur une extension précise (depuis la complétion) : il faut les extensions, quel que soit le tri choisi.
+  let sort = param ? 'set' : prefs.sort;
 
   function draw() {
     const groups = album(catalog, holdings, prefs);
@@ -29,22 +32,34 @@ export async function render(root, { catalog, snapshot, store, param }) {
         ${['AR', 'SAR'].map((r) => `<button type="button" class="chip${prefs.rarities.includes(r) ? ' on' : ''}" data-value="${r}">${r}</button>`).join('')}
       </div>
       ${connected ? chips('show', SHOW, prefs.show) : ''}
-      ${groups.length ? groups.map(section).join('') : '<p class="state">Aucune carte avec ces filtres.</p>'}`;
+      ${chips('sort', SORT, sort)}
+      ${sort === 'set' ? bySet(groups) : byPrice()}`;
+  }
+
+  function bySet(groups) {
+    return groups.length ? groups.map(section).join('') : '<p class="state">Aucune carte avec ces filtres.</p>';
+  }
+
+  function byPrice() {
+    const list = albumByPrice(catalog, holdings, snapshot, { rarities: prefs.rarities, show: prefs.show, dir: sort });
+    return list.length
+      ? `<div class="grid" style="margin-top:12px">${list.map((item) => tile(item, true)).join('')}</div>`
+      : '<p class="state">Aucune carte avec ces filtres.</p>';
   }
 
   function section(group) {
     return `<section id="set-${esc(group.set)}">
       <h2 class="toolbar"><span>${esc(group.set)} <span class="muted">${esc(group.name)}</span></span>
         <span class="muted">${connected ? `${group.owned}/${group.total}${group.owned === group.total ? ' ✓' : ''}` : group.total}</span></h2>
-      <div class="grid">${group.cards.map(tile).join('')}</div>
+      <div class="grid">${group.cards.map((item) => tile(item)).join('')}</div>
     </section>`;
   }
 
-  function tile({ card, qty }) {
+  function tile({ card, qty }, withSet = false) {
     const trend = snapshot.cards[card.id]?.[COL.trend] ?? null;
     return `<a class="tile${connected ? ` pick${qty ? ' owned' : ''}` : ''}" href="#/carte/${card.id}" title="${esc(displayName(card))}">
       ${cardImg(card, catalog.sets)}${qty > 1 ? `<span class="qty">×${qty}</span>` : ''}
-      <div class="muted">${esc(card.n)} · ${formatEuro(trend)}</div></a>`;
+      <div class="muted">${withSet ? `${esc(card.s)} ` : ''}${esc(card.n)} · ${formatEuro(trend)}</div></a>`;
   }
 
   onChip(root, (group, value) => {
@@ -53,6 +68,9 @@ export async function render(root, { catalog, snapshot, store, param }) {
       if (next.length) prefs.rarities = ['AR', 'SAR'].filter((r) => next.includes(r)); // au moins une rareté
     } else if (group === 'show') {
       prefs.show = value;
+    } else if (group === 'sort') {
+      sort = prefs.sort = value;
+      window.scrollTo(0, 0);
     }
     savePrefs('album', prefs);
     draw();

@@ -246,6 +246,20 @@ test('album : toutes les cartes d’une rareté, par extension, avec l’état p
   assert.deepEqual(owned.map((g) => [g.set, g.total, g.cards.map((c) => c.card.id)]), [['A', 3, [1]]]);
 });
 
+test('album par prix : à plat, toutes extensions, sans prix à la fin', () => {
+  const cat = { sets: { A: { date: '2026-01-01' }, B: { date: '2026-06-01' } }, cards: [
+    { id: 1, s: 'A', n: '9', r: 'AR' }, { id: 2, s: 'A', n: '10', r: 'AR' }, { id: 3, s: 'A', n: '11', r: 'SAR' },
+    { id: 5, s: 'B', n: '1', r: 'AR' }, { id: 7, s: 'B', n: '3', r: 'AR' },
+  ] };
+  const snap = { cards: { 1: [500], 2: [2000], 3: [9000], 5: [800], 7: [null] } };
+  const holdings = [{ id_product: 2, qty: 1 }];
+  const ids = (list) => list.map((x) => x.card.id);
+  assert.deepEqual(ids(m.albumByPrice(cat, holdings, snap, { rarities: ['AR'] })), [2, 5, 1, 7]);
+  assert.deepEqual(ids(m.albumByPrice(cat, holdings, snap, { rarities: ['AR'], dir: 'asc' })), [1, 5, 2, 7]);
+  assert.deepEqual(ids(m.albumByPrice(cat, holdings, snap, { rarities: ['AR', 'SAR'], show: 'missing' })), [3, 5, 1, 7]);
+  assert.deepEqual(m.albumByPrice(cat, holdings, snap, { rarities: ['AR'] })[0], { card: cat.cards[1], qty: 1, trend: 2000 });
+});
+
 test('topOwned : cartes possédées les plus chères, sans les cartes inconnues ou sans prix', () => {
   const holdings = [{ id_product: 803303, qty: 5 }, { id_product: 803325, qty: 1 }, { id_product: 5, qty: 1 }, { id_product: 999, qty: 1 }, { id_product: 4, qty: 1 }];
   assert.deepEqual(m.topOwned(holdings, { ...catalog, byId: new Map(catalog.cards.map((c) => [c.id, c])) }, snapshot, 3).map((c) => c.id), [803325, 5, 4]);

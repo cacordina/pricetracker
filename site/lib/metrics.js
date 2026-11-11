@@ -286,6 +286,21 @@ export function album(catalog, holdings, { rarities, show = 'all' }) {
     .sort((a, b) => (catalog.sets[b.set]?.date ?? '').localeCompare(catalog.sets[a.set]?.date ?? '') || a.set.localeCompare(b.set));
 }
 
+/**
+ * Album à plat, toutes extensions confondues, trié par prix du jour (`dir` : "desc" ou "asc").
+ * Les cartes sans prix viennent toujours à la fin.
+ */
+export function albumByPrice(catalog, holdings, snapshot, { rarities, show = 'all', dir = 'desc' }) {
+  const cards = album(catalog, holdings, { rarities, show })
+    .flatMap((g) => g.cards)
+    .map((item) => ({ ...item, trend: snapshot.cards[item.card.id]?.[COL.trend] ?? null }));
+  const sign = dir === 'asc' ? 1 : -1;
+  return cards.sort((a, b) => {
+    if (a.trend === null || b.trend === null) return (a.trend === null) - (b.trend === null);
+    return sign * (a.trend - b.trend);
+  });
+}
+
 /** Les `n` cartes possédées au prix unitaire le plus élevé (pour la vitrine de l'accueil). */
 export function topOwned(holdings, catalog, snapshot, n = 3) {
   return holdings
