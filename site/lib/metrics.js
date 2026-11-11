@@ -55,12 +55,16 @@ export function ebaySoldUrl(card, sets = {}) {
 const normalize = (text) => String(text ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const haystacks = new WeakMap();
 
-/** Recherche par nom japonais ou anglais, extension, numéro ; tous les mots doivent être présents. */
-export function searchCards(catalog, query, limit = 60) {
+/**
+ * Recherche par nom japonais ou anglais, extension, numéro ; tous les mots doivent être présents.
+ * `rarities` : raretés classées acceptées (null = toutes).
+ */
+export function searchCards(catalog, query, limit = 60, { rarities = null } = {}) {
   const words = normalize(query).split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   const out = [];
   for (const card of catalog.cards) {
+    if (rarities && !rarities.includes(card.r)) continue;
     let hay = haystacks.get(card);
     if (!hay) {
       hay = normalize(`${card.ja} ${card.fr ?? ''} ${card.en ?? ''} ${card.s} ${card.n} ${catalog.sets[card.s]?.name ?? ''}`);

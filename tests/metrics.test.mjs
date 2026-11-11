@@ -43,6 +43,9 @@ test('searchCards : japonais, anglais, extension + numéro', () => {
   assert.deepEqual(m.searchCards(catalog, '   '), []);
   assert.deepEqual(m.searchCards(catalog, 'zzzz'), []);
   assert.equal(m.searchCards(catalog, 'ex', 1).length, 1);
+  assert.deepEqual(m.searchCards(catalog, 'sv8a', 60, { rarities: ['AR'] }).map((c) => c.id), [803303]);
+  assert.deepEqual(m.searchCards(catalog, 'ex', 60, { rarities: ['SAR', 'secret'] }).map((c) => c.id), [803325, 3]);
+  assert.deepEqual(m.searchCards(catalog, 'charmander', 60, { rarities: ['SAR'] }), []);
 });
 test('imageUrl et cardmarketUrl', () => {
   assert.equal(m.imageUrl(catalog.cards[0], catalog.sets), 'https://assets.tcgdex.net/ja/SV/SV8a/212/low.webp');
