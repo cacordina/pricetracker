@@ -1,5 +1,5 @@
 // Saisie rapide : choisir une extension, puis toucher les cartes possédées.
-import { COL, formatEuro, displayName } from '../lib/metrics.js';
+import { COL, formatEuro, displayName, priceOf } from '../lib/metrics.js';
 import { cardImg, esc, loadPrefs, savePrefs, storeProblem } from '../lib/ui.js';
 
 export async function render(root, { catalog, snapshot, store }) {
@@ -44,7 +44,7 @@ export async function render(root, { catalog, snapshot, store }) {
 
   function tile(card) {
     const qty = owned.get(card.id) ?? 0;
-    const trend = snapshot.cards[card.id]?.[COL.trend] ?? null;
+    const trend = priceOf(snapshot.cards[card.id]);
     return `<div class="tile pick${qty ? ' owned' : ''}" data-id="${card.id}" role="button" tabindex="0" aria-pressed="${qty > 0}" aria-label="${esc(displayName(card))} ${esc(card.n)}">
       ${cardImg(card, catalog.sets)}
       <div class="muted">${esc(card.n)} · ${formatEuro(trend)}</div>

@@ -9,8 +9,8 @@ const cards = [
 ];
 const byId = new Map(cards.map((c) => [c.id, c]));
 const histories = {
-  SV8a: { dates: ['2026-11-09', '2026-11-10', '2026-11-11'], cards: { 1: { t: [12000, 10500, 9900] }, 2: { t: [400, null, 380] } } },
-  M2: { dates: ['2026-11-10'], cards: { 3: { t: [5000] } } }, // pas coté le 11
+  SV8a: { dates: ['2026-11-09', '2026-11-10', '2026-11-11'], cards: { 1: { p: [12000, 10500, 9900] }, 2: { p: [400, null, 380] } } },
+  M2: { dates: ['2026-11-10'], cards: { 3: { p: [5000] } } }, // pas coté le 11
 };
 const date = '2026-11-11';
 
@@ -29,8 +29,13 @@ test('alertes : seulement le jour où le prix passe sous la cible', () => {
 });
 
 test('alertes : une carte tout juste cotée et déjà sous la cible déclenche une alerte', () => {
-  const h = { SV8a: { dates: ['2026-11-10', '2026-11-11'], cards: { 2: { t: [null, 300] } } } };
+  const h = { SV8a: { dates: ['2026-11-10', '2026-11-11'], cards: { 2: { p: [null, 300], t: [null, 310] } } } };
   assert.equal(crossings({ wishes: [{ user_id: 'a', id_product: 2, target_cents: 500 }], byId, histories: h, date }).length, 1);
+});
+
+test('alertes : pas d’alerte en masse le jour où la série du prix retenu apparaît', () => {
+  const h = { SV8a: { dates: ['2026-11-10', '2026-11-11'], cards: { 2: { p: [null, 300], t: [280, 290] } } } };
+  assert.equal(crossings({ wishes: [{ user_id: 'a', id_product: 2, target_cents: 500 }], byId, histories: h, date }).length, 0);
 });
 
 test('alertes : un message par compte, résumé au-delà d’une carte', () => {

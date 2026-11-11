@@ -31,7 +31,7 @@ test('écrit historique + instantané, uniquement pour le catalogue japonais', a
   assert.deepEqual(r, { status: 'written', date: '2026-11-09' });
   const h = JSON.parse(await readFile(join(dataDir, 'history/SV8a.json'), 'utf8'));
   assert.deepEqual(h.dates, ['2026-11-09']);
-  assert.deepEqual(h.cards[803325], { t: [10324], l: [6200], a: [10500] });
+  assert.deepEqual(h.cards[803325], { p: [11576], t: [10324], l: [6200], a: [10500] }); // p = moyenne 7 j
   assert.ok(!('271439' in h.cards));
   assert.ok(!('922296' in h.cards));
   const s = JSON.parse(await readFile(join(dataDir, 'snapshot.json'), 'utf8'));

@@ -1,9 +1,16 @@
 // Fiche d'une carte : image, prix, courbe, liens Cardmarket et eBay, collection et envies.
 import { loadHistory, loadUsSnapshot, loadUsHistory } from '../lib/data.js';
-import { COL, displayName, formatEuro, formatPct, formatUsd, usdToEur, usGap, alignTo, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
+import { COL, priceOf, priceSource, displayName, formatEuro, formatPct, formatUsd, usdToEur, usGap, alignTo, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
 import { cardImg, chips, onChip, pctSpan, rarityTag, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
 import { renderPriceChart, frDate } from '../lib/chart.js';
 import { CARDMARKET_FILTERS } from '../config.js';
+
+const SOURCE_LABEL = {
+  avg7: 'moyenne des ventes sur 7 jours',
+  avg30: 'moyenne des ventes sur 30 jours (aucune vente sur 7 jours)',
+  trend: 'tendance Cardmarket (aucune vente récente)',
+  null: '',
+};
 
 export async function render(root, { catalog, snapshot, store, param }) {
   const id = Number(param);
@@ -20,7 +27,9 @@ export async function render(root, { catalog, snapshot, store, param }) {
     loadHistory(card.s).catch(() => null), loadUsSnapshot(), loadUsHistory(card.s),
   ]);
   const series = history?.cards?.[id];
-  const priced = row && row[COL.trend] !== null;
+  const price = priceOf(row);
+  const priced = price !== null;
+  const source = priceSource(row);
   // TCGplayer : prix en dollars, convertis au taux BCE du jour du relevé.
   const usd = us?.cards?.[id] ?? null;
   const usEur = usdToEur(usd, us?.rate);
@@ -37,21 +46,24 @@ export async function render(root, { catalog, snapshot, store, param }) {
         <div class="muted">${esc(card.s)} ${esc(card.n)}${rarityTag(card)}</div>
         <div class="muted">${esc(set?.name ?? '')}</div>
         ${priced ? `
-          <div class="big" style="margin-top:10px">${formatEuro(row[COL.trend])}</div>
-          <div>${pctSpan(row[COL.d7])} <span class="muted">7 j</span> &nbsp; ${pctSpan(row[COL.d30])} <span class="muted">30 j</span></div>
+          <div class="big" style="margin-top:10px">${formatEuro(price)}</div>
+          <div class="muted" style="font-size:12px">${SOURCE_LABEL[source]}</div>
+          <div>${row[COL.d7] === null && row[COL.d30] === null
+            ? '<span class="muted" style="font-size:13px">Variations après 7 jours de relevés</span>'
+            : `${pctSpan(row[COL.d7])} <span class="muted">7 j</span> &nbsp; ${pctSpan(row[COL.d30])} <span class="muted">30 j</span>`}</div>
           <div class="kv">
-            <span>Plus bas</span><span>${formatEuro(row[COL.low])}</span>
-            <span>Moy. 7 j</span><span>${formatEuro(row[COL.avg7])}</span>
             <span>Moy. 30 j</span><span>${formatEuro(row[COL.avg30])}</span>
+            <span>Plus bas</span><span>${formatEuro(row[COL.low])}</span>
+            <span>Tendance</span><span>${formatEuro(row[COL.trend])}</span>
           </div>` : '<p class="muted" style="margin-top:10px">Pas de prix publié par Cardmarket pour cette carte.</p>'}
       </div>
     </div>
     ${usBlock()}
     <div class="chart" id="chart"></div>
     <div class="muted readout" style="min-height:1.4em"></div>
-    <div class="legend"><span><i></i>tendance</span><span><i class="dash"></i>prix le plus bas</span>${usSeries?.some((v) => v !== null) ? '<span><i class="us"></i>TCGplayer (€)</span>' : ''}</div>
+    <div class="legend"><span><i></i>moyenne 7 j</span><span><i class="dash"></i>plus bas en vente</span>${usSeries?.some((v) => v !== null) ? '<span><i class="us"></i>TCGplayer (€)</span>' : ''}</div>
     ${chips('range', RANGES, prefs.range)}
-    <div class="muted">Le prix le plus bas peut correspondre à un exemplaire abîmé.</div>
+    <div class="muted">Prix suivi : moyenne des ventes Cardmarket sur 7 jours (états Excellent ou mieux). Le plus bas en vente peut être un exemplaire abîmé ; la tendance Cardmarket est donnée pour information.</div>
     <a class="btn" href="${esc(cardmarketUrl(id, CARDMARKET_FILTERS))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>
     <div class="muted" style="text-align:center;margin-top:4px">Offres filtrées : cartes japonaises, vendeurs en France</div>
     <a class="btn sec" href="${esc(ebaySoldUrl(card, catalog.sets))}" target="_blank" rel="noopener">Dernières ventes sur eBay ↗</a>
@@ -62,17 +74,17 @@ export async function render(root, { catalog, snapshot, store, param }) {
   const drawChart = () => renderPriceChart(chartEl, {
     dates: history?.dates ?? [],
     series: [
-      { label: 'Tendance', values: series?.t ?? [] },
+      { label: 'Moy. 7 j', values: series?.p ?? [] },
       { label: 'Plus bas', values: series?.l ?? [], dash: true },
       ...(usSeries ? [{ label: 'TCGplayer', values: usSeries, color: 'var(--us)' }] : []),
     ],
-  }, prefs.range);
+  }, prefs.range, { empty: priced ? 'La courbe de la moyenne des ventes 7 j apparaîtra avec les prochains relevés.' : undefined });
   root._draw = drawChart;
 
   function usBlock() {
     if (!us) return ''; // prix TCGplayer pas encore publiés
     if (usd === null) return '<p class="muted" style="margin-top:12px">Pas de prix de marché TCGplayer (États-Unis) pour cette carte.</p>';
-    const gap = priced ? usGap(row[COL.trend], usEur) : null;
+    const gap = priced ? usGap(price, usEur) : null;
     return `<div class="box us">
       <div class="line"><span>TCGplayer <span class="muted">États-Unis</span></span><b>${formatUsd(usd)}</b></div>
       <div class="line" style="margin-top:2px">
@@ -91,7 +103,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
     drawChart();
   });
 
-  renderMine(root.querySelector('#mine'), id, store, priced ? row[COL.trend] : null);
+  renderMine(root.querySelector('#mine'), id, store, price);
 }
 
 export function mounted(root) {

@@ -5,7 +5,8 @@ import { pctChange, buildSnapshot } from '../scripts/lib/snapshot.mjs';
 const d = (n) => `2026-11-${String(n).padStart(2, '0')}`;
 // 11-01 … 11-10 sauf 11-03 ; carte 1 : 100 le 11-02, 120 le 11-10
 const dates = [1, 2, 4, 5, 6, 7, 8, 9, 10].map(d);
-const series = (vals) => ({ t: vals, l: vals.map(() => null), a: vals.map(() => null) });
+// p = prix retenu (moyenne 7 j), sur lequel portent les variations ; t (tendance) n'y joue plus.
+const series = (vals) => ({ p: vals, t: vals.map(() => 1), l: vals.map(() => null), a: vals.map(() => null) });
 const h = { dates, cards: { 1: series([90, 100, 101, 102, 103, 104, 105, 110, 120]) } };
 
 test('variation 7 j : J-7 absent, prend la dernière date connue avant', () => {
@@ -33,20 +34,26 @@ const prices = new Map([
   [3, { t: 50, l: null, a: null, a7: null, a30: 0 }],
 ]);
 
-test('historique court : variations estimées depuis les moyennes Cardmarket', () => {
+test('historique court : pas de variation estimée, approx le signale', () => {
   const s = buildSnapshot({ date: d(10), prices, histories: { A: { dates: [d(9), d(10)], cards: { 1: series([110, 120]) } } }, catalog });
   assert.deepEqual(s.approx, { d7: true, d30: true });
-  assert.deepEqual(s.cards[1], [120, 60, 115, 100, 150, 20.0, -20.0]);
+  assert.deepEqual(s.cards[1], [120, 60, 115, 100, 150, null, null]);
   assert.equal(s.date, d(10));
 });
-test('carte sans aucun prix : absente ; moyenne nulle : variation null', () => {
+test('carte sans aucun prix : absente', () => {
   const s = buildSnapshot({ date: d(10), prices, histories: { A: { dates: [d(10)], cards: {} } }, catalog });
   assert.equal(2 in s.cards, false);
   assert.deepEqual(s.cards[3], [50, null, null, null, 0, null, null]);
 });
-test('historique d’au moins 7 jours : d7 vient de l’historique, d30 reste estimé', () => {
+test('historique d’au moins 7 jours : d7 calculé sur le prix retenu, d30 pas encore', () => {
   const s = buildSnapshot({ date: d(10), prices, histories: { A: h }, catalog });
   assert.deepEqual(s.approx, { d7: false, d30: true });
   assert.equal(s.cards[1][5], 20.0);
-  assert.equal(s.cards[1][6], -20.0);
+  assert.equal(s.cards[1][6], null);
+});
+test('dates assez anciennes mais pas encore de prix retenu à la référence : variations indisponibles', () => {
+  const old = { dates, cards: { 1: { ...series([90, 100, 101, 102, 103, 104, 105, 110, 120]), p: [null, null, null, null, null, null, null, 110, 120] } } };
+  const s = buildSnapshot({ date: d(10), prices, histories: { A: old }, catalog });
+  assert.deepEqual(s.approx, { d7: true, d30: true });
+  assert.equal(s.cards[1][5], null);
 });

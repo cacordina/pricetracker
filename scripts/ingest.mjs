@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { toCents } from './lib/money.mjs';
+import { toCents, mainPrice } from './lib/money.mjs';
 import { appendDay } from './lib/history.mjs';
 import { checkDay } from './lib/guards.mjs';
 import { buildSnapshot } from './lib/snapshot.mjs';
@@ -33,10 +33,11 @@ export async function ingest({ dataDir, priceGuide, catalog }) {
   const prices = new Map();
   for (const row of priceGuide.priceGuides) {
     if (!wanted.has(row.idProduct)) continue;
-    prices.set(row.idProduct, {
+    const p = {
       t: toCents(row.trend), l: toCents(row.low), a: toCents(row.avg1),
       a7: toCents(row.avg7), a30: toCents(row.avg30),
-    });
+    };
+    prices.set(row.idProduct, { ...p, p: mainPrice(p) });
   }
   const pricedCount = [...prices.values()].filter((p) => p.t !== null).length;
 

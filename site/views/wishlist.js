@@ -1,6 +1,6 @@
 // Écran Envies : cartes convoitées, celles passées sous leur prix cible en tête.
 import { loadHistories } from '../lib/data.js';
-import { COL, wishStatus, sortWishes, formatEuro } from '../lib/metrics.js';
+import { COL, wishStatus, sortWishes, formatEuro, priceOf } from '../lib/metrics.js';
 import { cardRow, cardImg, esc, storeProblem } from '../lib/ui.js';
 import { staleBanner, wireStale } from '../lib/migrate.js';
 import { pushSupport, currentSubscription, enablePush, disablePush } from '../lib/push.js';
@@ -53,7 +53,7 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     const sub = wish.target_cents === null
       ? 'Pas de prix cible'
       : `Cible ${formatEuro(wish.target_cents)}${status.gapCents > 0 ? ` · encore ${formatEuro(status.gapCents)} au-dessus` : ''}`;
-    return cardRow(card, catalog.sets, { trend: row?.[COL.trend] ?? null, change: row?.[COL.d7] ?? null, sub: esc(sub), tags });
+    return cardRow(card, catalog.sets, { trend: priceOf(row), change: row?.[COL.d7] ?? null, sub: esc(sub), tags });
   }
 }
 

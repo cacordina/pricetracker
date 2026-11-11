@@ -1,5 +1,5 @@
 /**
- * Alertes de prix cible : une envie déclenche une alerte le jour où son prix passe sous la cible
+ * Alertes de prix cible (sur le prix retenu, la moyenne des ventes 7 j) : une envie déclenche une alerte le jour où son prix passe sous la cible
  * (ou l'atteint), pas tous les jours où il y reste. Le jour précédent est lu dans l'historique : rien à mémoriser.
  */
 import { displayName, formatEuro } from '../../site/lib/metrics.js';
@@ -18,12 +18,16 @@ export function crossings({ wishes, byId, histories, date }) {
     if (target === null || target === undefined || !card) continue;
     const history = histories[card.s];
     const at = history?.dates.lastIndexOf(date) ?? -1;
-    const series = history?.cards?.[wish.id_product]?.t;
+    const card$ = history?.cards?.[wish.id_product];
+    const series = card$?.p;
     if (at < 0 || !series) continue;
     const trend = series[at];
     if (trend === null || trend === undefined || trend > target) continue;
-    const before = series.slice(0, at).findLast((v) => v !== null && v !== undefined);
+    const known = (v) => v !== null && v !== undefined;
+    const before = series.slice(0, at).findLast(known);
     if (before !== undefined && before <= target) continue; // déjà sous la cible au relevé précédent
+    // Série p toute neuve (passage de la tendance à la moyenne 7 j) : la carte était déjà cotée, ce n'est pas un passage.
+    if (before === undefined && card$.t?.slice(0, at).some(known)) continue;
     out.push({ userId: wish.user_id, card, trend, target });
   }
   return out;

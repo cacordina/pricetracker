@@ -31,6 +31,7 @@ export function rarityTag(card) {
   if (card.r === 'AR') return ' <span class="rar ar">AR</span>';
   if (card.r === 'SAR') return ' <span class="rar sar">SAR</span>';
   if (card.r === 'secret') return ' <span class="rar sec">Secrète</span>';
+  if (card.r === 'promo') return ' <span class="rar sec">Promo</span>';
   return '';
 }
 

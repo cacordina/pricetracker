@@ -8,7 +8,7 @@ const charts = new WeakMap();
  * @param data    { dates: string[], series: [{ label, values (centimes), dash?, color? }] }
  * @param range   "7" | "30" | "90" | "all"
  */
-export function renderPriceChart(el, { dates, series }, range = '30', { height = 150 } = {}) {
+export function renderPriceChart(el, { dates, series }, range = '30', { height = 150, empty = 'Pas encore de prix enregistré pour cette carte.' } = {}) {
   charts.get(el)?.destroy();
   charts.delete(el);
   el.replaceChildren();
@@ -25,7 +25,7 @@ export function renderPriceChart(el, { dates, series }, range = '30', { height =
       ? 'Courbe indisponible (bibliothèque non chargée).'
       : known === 1
         ? `Suivi commencé le ${frDate(shown.at(-1))}. La courbe apparaîtra avec les prochains relevés.`
-        : 'Pas encore de prix enregistré pour cette carte.';
+        : empty;
     el.append(p);
     return;
   }

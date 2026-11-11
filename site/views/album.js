@@ -1,5 +1,5 @@
 // Album : toutes les cartes AR (et/ou SAR) du catalogue, possédées ou non, par extension ou par prix.
-import { COL, album, albumByPrice, formatEuro, displayName } from '../lib/metrics.js';
+import { COL, album, albumByPrice, formatEuro, displayName, priceOf } from '../lib/metrics.js';
 import { cardImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 
 const SHOW = [{ value: 'all', label: 'Toutes' }, { value: 'missing', label: 'Manquantes' }, { value: 'owned', label: 'Possédées' }];
@@ -56,7 +56,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
   }
 
   function tile({ card, qty }, withSet = false) {
-    const trend = snapshot.cards[card.id]?.[COL.trend] ?? null;
+    const trend = priceOf(snapshot.cards[card.id]);
     return `<a class="tile${connected ? ` pick${qty ? ' owned' : ''}` : ''}" href="#/carte/${card.id}" title="${esc(displayName(card))}">
       ${cardImg(card, catalog.sets)}${qty > 1 ? `<span class="qty">×${qty}</span>` : ''}
       <div class="muted">${withSet ? `${esc(card.s)} ` : ''}${esc(card.n)} · ${formatEuro(trend)}</div></a>`;

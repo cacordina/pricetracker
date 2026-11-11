@@ -25,7 +25,9 @@ Chaque jour (GitHub Actions)                 Chaque lundi
 
 Rien à faire. Les prix arrivent chaque matin ; un second passage à la mi-journée rattrape une publication tardive.
 
-Les premières semaines, les variations 7 j et 30 j sont estimées à partir des moyennes Cardmarket (un bandeau le signale), puis calculées sur l'historique propre du site.
+**Prix suivi** : partout (fiches, marché, collection, alertes), le site retient la moyenne des ventes Cardmarket sur 7 jours, qui ne compte que les états Excellent ou mieux ; à défaut la moyenne 30 jours, puis la tendance. La tendance Cardmarket reste affichée sur la fiche pour information : sur les cartes peu échangées, elle peut tomber sous toutes les ventes récentes et sous l'annonce la moins chère (exemple : Tiplouf M-P 112, tendance 0,75 € pour des ventes autour de 2 €).
+
+Les variations 7 j et 30 j sont calculées sur l'historique propre du site (moyenne 7 j) ; tant qu'il ne remonte pas assez loin, elles ne sont pas affichées plutôt qu'estimées.
 
 ## Si une mise à jour échoue
 
@@ -44,7 +46,7 @@ Quand ni TCGdex ni la source de secours ne donnent la rareté d'une carte, elle 
 { "803325": "SAR", "803303": "AR" }
 ```
 
-Valeurs acceptées : `AR`, `SAR`, `secret`, `regular`. La correction s'applique à la reconstruction suivante du catalogue (lundi, ou *Run workflow* sur *Catalogue japonais*).
+Valeurs acceptées : `AR`, `SAR`, `promo`, `secret`, `regular`. Les promos (rareté « Promo » ou extension de promos comme `M-P`) sont classées à part automatiquement. La correction s'applique à la reconstruction suivante du catalogue (lundi, ou *Run workflow* sur *Catalogue japonais*).
 
 ## Travailler en local
 
@@ -97,7 +99,7 @@ Le site s'installe comme une application : sur iPhone, Safari → Partager → *
 ## Limites connues
 
 - eBay : la fiche carte ouvre la recherche des ventes conclues sur ebay.fr (nom anglais, numéro, « japanese »). Les prix ne sont pas importés : eBay ne donne accès à l'historique des ventes qu'à des partenaires agréés (API Marketplace Insights), et la lecture automatique de ses pages est interdite par ses conditions.
-- Les prix sont globaux par carte : ni l'état, ni la langue du vendeur. Le « plus bas » peut être un exemplaire abîmé.
+- Les prix sont globaux par carte, sans distinction de langue du vendeur. Le « plus bas » est l'annonce la moins chère, tous états confondus : il peut s'agir d'un exemplaire abîmé.
 - L'historique commence à la mise en service.
 - La courbe de la collection ne fait entrer une carte qu'à sa date d'achat quand elle est renseignée ; sans date, la carte compte depuis le début de l'historique. La variation affichée au-dessus ne mesure que l'évolution des prix des cartes possédées aujourd'hui, pas les achats.
 - Le prix d'achat est un prix par exemplaire : pour plusieurs exemplaires payés différemment, on saisit la moyenne.

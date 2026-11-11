@@ -15,34 +15,36 @@ function refIndex(dates, date, days) {
   return -1;
 }
 
-/** Variation du trend entre `date` et `days` jours plus tôt (dernière date connue ≤ J−N, à 3 jours près). */
+/** Variation du prix retenu (p) entre `date` et `days` jours plus tôt (dernière date connue ≤ J−N, à 3 jours près). */
 export function pctChange(history, id, date, days) {
-  const series = history?.cards?.[id];
+  const series = history?.cards?.[id]?.p;
   if (!series) return null;
   const now = history.dates.indexOf(date);
   const ref = refIndex(history.dates, date, days);
   if (now < 0 || ref < 0) return null;
-  return pct(series.t[now], series.t[ref]);
+  return pct(series[now], series[ref]);
 }
 
 /**
  * snapshot = { date, approx: { d7, d30 }, cards: { [id]: [trend, low, avg1, avg7, avg30, d7, d30] } }
- * Tant que l'historique ne remonte pas assez loin, la variation est estimée par rapport
- * à la moyenne Cardmarket (avg7 / avg30) et `approx` le signale.
+ * Les variations portent sur le prix retenu (moyenne 7 j). Tant que l'historique ne remonte pas assez loin,
+ * elles valent null (on n'estime plus) et `approx` le signale (true = pas encore disponible).
  */
 export function buildSnapshot({ date, prices, histories, catalog }) {
   const all = Object.values(histories);
-  const approx = {
-    d7: !all.some((h) => refIndex(h.dates, date, 7) >= 0),
-    d30: !all.some((h) => refIndex(h.dates, date, 30) >= 0),
-  };
+  // Une variation est disponible s'il existe un prix retenu (p) à la date de référence, pas seulement une date.
+  const ready = (days) => all.some((h) => {
+    const i = refIndex(h.dates, date, days);
+    return i >= 0 && Object.values(h.cards).some((c) => c.p?.[i] !== null && c.p?.[i] !== undefined);
+  });
+  const approx = { d7: !ready(7), d30: !ready(30) };
   const cards = {};
   for (const card of catalog.cards) {
     const p = prices.get(card.id);
     if (!p || [p.t, p.l, p.a, p.a7, p.a30].every((v) => v === null || v === undefined)) continue;
     const h = histories[card.s];
-    const d7 = approx.d7 ? pct(p.t, p.a7) : pctChange(h, card.id, date, 7);
-    const d30 = approx.d30 ? pct(p.t, p.a30) : pctChange(h, card.id, date, 30);
+    const d7 = approx.d7 ? null : pctChange(h, card.id, date, 7);
+    const d30 = approx.d30 ? null : pctChange(h, card.id, date, 30);
     cards[card.id] = [p.t ?? null, p.l ?? null, p.a ?? null, p.a7 ?? null, p.a30 ?? null, d7, d30];
   }
   return { date, approx, cards };

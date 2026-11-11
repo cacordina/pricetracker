@@ -24,7 +24,22 @@ export async function loadCatalog() {
   return catalog;
 }
 
-export const loadSnapshot = () => getJson('snapshot.json');
+/**
+ * Instantané du jour. Une variation que l'instantané signale comme non disponible (`approx`) n'est jamais affichée :
+ * les anciens instantanés y mettaient une estimation trompeuse, les nouveaux y mettent null.
+ */
+export const loadSnapshot = () => {
+  if (!cache.has('snapshot.json#clean')) {
+    const promise = getJson('snapshot.json').then((snapshot) => {
+      const drop = [snapshot.approx?.d7 && 5, snapshot.approx?.d30 && 6].filter(Boolean); // colonnes d7, d30
+      if (drop.length) for (const row of Object.values(snapshot.cards)) for (const i of drop) row[i] = null;
+      return snapshot;
+    });
+    promise.catch(() => cache.delete('snapshot.json#clean')); // un échec ne doit pas rester en cache
+    cache.set('snapshot.json#clean', promise);
+  }
+  return cache.get('snapshot.json#clean');
+};
 
 /** Historique d'une extension, ou null si elle n'a jamais été cotée. */
 export const loadHistory = (setId) => getJson(`history/${historyFile(setId)}`, { optional: true });

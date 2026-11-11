@@ -2,7 +2,7 @@
 import { loadHistories } from '../lib/data.js';
 import {
   COL, collectionValue, collectionSeries, rangeChange, sliceRange, marketList, completion,
-  wishStatus, sortWishes, topOwned, formatEuro, formatPct, displayName,
+  wishStatus, sortWishes, topOwned, formatEuro, formatPct, displayName, priceOf,
 } from '../lib/metrics.js';
 import { cardImg, cardRow, pctSpan, esc } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
@@ -74,7 +74,7 @@ export async function render(root, { catalog, snapshot, store }) {
     if (!under.length) return '';
     return `<div class="section-head"><h2>Sous votre prix cible</h2><a class="link" href="#/envies">Mes envies</a></div>
       ${under.slice(0, 3).map((i) => cardRow(i.card, catalog.sets, {
-        trend: i.row?.[COL.trend] ?? null, change: i.row?.[COL.d7] ?? null,
+        trend: priceOf(i.row), change: i.row?.[COL.d7] ?? null,
         sub: esc(`Cible ${formatEuro(i.wish.target_cents)}`), tags: '<span class="tag">Sous la cible</span>',
       })).join('')}`;
   }

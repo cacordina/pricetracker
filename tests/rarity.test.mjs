@@ -21,7 +21,7 @@ test('numéro non numérique ou compte officiel absent = unknown', () => {
   assert.equal(cls({ id: 6, n: 'SV-P' }), 'unknown');
   assert.equal(cls({ id: 6, n: '010' }, null, {}, {}), 'unknown');
 });
-test('source connue mais numéro illisible = regular', () => assert.equal(cls({ id: 7, n: 'A1' }, 'Promo'), 'regular'));
+test('source connue mais numéro illisible = regular', () => assert.equal(cls({ id: 7, n: 'A1' }, 'Common'), 'regular'));
 
 test('applyRarity : rareté de secours (q2) utilisée quand TCGdex n’en donne pas', async () => {
   const { applyRarity } = await import('../scripts/lib/rarity.mjs');
@@ -32,4 +32,18 @@ test('applyRarity : rareté de secours (q2) utilisée quand TCGdex n’en donne 
   ] };
   applyRarity(catalog, {});
   assert.deepEqual(catalog.cards.map((c) => c.r), ['SAR', 'AR', 'AR']);
+});
+
+test('promos : rareté source « Promo » ou extension de promos, jamais « secret »', () => {
+  assert.equal(cls({ id: 8, s: 'M-P', n: '112' }, 'Promo'), 'promo');
+  assert.equal(cls({ id: 8, s: 'M-P', n: '112' }, null, {}, { official: 0 }), 'promo'); // M-P 112 sans rareté source
+  assert.equal(cls({ id: 8, s: 'SV-P', n: '001' }), 'promo');
+  assert.equal(cls({ id: 8, s: 'SV8a', n: '230' }, 'promo'), 'promo');
+  assert.equal(cls({ id: 8, s: 'M-P', n: '112' }, 'Promo', { 8: 'regular' }), 'regular'); // correction manuelle
+  assert.equal(cls({ id: 9, s: 'SV8a', n: '230' }), 'secret');
+});
+test('applyRarity : promo reconnue par la rareté de secours', async () => {
+  const { applyRarity } = await import('../scripts/lib/rarity.mjs');
+  const catalog = { sets: { A: { official: 100 } }, cards: [{ id: 1, s: 'A', n: '150', q: null, q2: 'Promo' }] };
+  assert.equal(applyRarity(catalog, {}).cards[0].r, 'promo');
 });

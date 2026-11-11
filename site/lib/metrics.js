@@ -1,8 +1,26 @@
 // Fonctions pures du site (testées avec node --test). Prix en centimes.
 
-export const RARITY_LABEL = { AR: 'AR', SAR: 'SAR', secret: 'Secrète', regular: '', unknown: '' };
+export const RARITY_LABEL = { AR: 'AR', SAR: 'SAR', promo: 'Promo', secret: 'Secrète', regular: '', unknown: '' };
 // Colonnes d'une ligne de l'instantané.
 export const COL = { trend: 0, low: 1, avg1: 2, avg7: 3, avg30: 4, d7: 5, d30: 6 };
+
+/**
+ * Prix retenu partout sur le site : la moyenne des ventes sur 7 jours (plus fiable que la tendance Cardmarket
+ * sur les cartes peu échangées), à défaut la moyenne 30 jours, puis la tendance. Même règle que mainPrice
+ * côté ingestion (scripts/lib/money.mjs), qui l'enregistre dans l'historique (série p).
+ */
+export function priceOf(row) {
+  if (!row) return null;
+  return row[COL.avg7] ?? row[COL.avg30] ?? row[COL.trend] ?? null;
+}
+
+/** D'où vient le prix retenu : "avg7" | "avg30" | "trend" | null. */
+export function priceSource(row) {
+  if (!row) return null;
+  if (row[COL.avg7] !== null && row[COL.avg7] !== undefined) return 'avg7';
+  if (row[COL.avg30] !== null && row[COL.avg30] !== undefined) return 'avg30';
+  return row[COL.trend] !== null && row[COL.trend] !== undefined ? 'trend' : null;
+}
 
 const NBSP = ' ';
 const THIN = ' ';
@@ -90,8 +108,8 @@ export function marketList(catalog, snapshot, { rarities = null, tab = 'up', win
   for (const card of catalog.cards) {
     if (rarities && !rarities.includes(card.r)) continue;
     const row = snapshot.cards[card.id];
-    const trend = row?.[COL.trend];
-    if (trend === null || trend === undefined || trend < minCents) continue;
+    const trend = priceOf(row);
+    if (trend === null || trend < minCents) continue;
     let change;
     if (tab === 'deals') {
       const avg30 = row[COL.avg30];
@@ -129,8 +147,8 @@ export function cheaperInEurope(catalog, snapshot, us, { rarities = null, minCen
   const out = [];
   for (const card of catalog.cards) {
     if (rarities && !rarities.includes(card.r)) continue;
-    const trend = snapshot.cards[card.id]?.[COL.trend];
-    if (trend === null || trend === undefined || trend < minCents) continue;
+    const trend = priceOf(snapshot.cards[card.id]);
+    if (trend === null || trend < minCents) continue;
     const usEur = usdToEur(us.cards[card.id], us.rate);
     const change = usGap(trend, usEur);
     if (change === null || change < minGap) continue;
@@ -163,8 +181,8 @@ export function collectionValue(holdings, snapshot) {
   let count = 0;
   for (const h of holdings) {
     count += h.qty;
-    const trend = snapshot.cards[h.id_product]?.[COL.trend];
-    if (trend === null || trend === undefined) unpriced += 1;
+    const trend = priceOf(snapshot.cards[h.id_product]);
+    if (trend === null) unpriced += 1;
     else totalCents += trend * h.qty;
   }
   return { totalCents, unpriced, count };
@@ -184,7 +202,7 @@ export function collectionSeries(holdings, histories, { fromPurchase = false } =
   for (const holding of holdings) {
     const history = all.find((h) => h.cards[holding.id_product]);
     if (!history) continue;
-    const series = history.cards[holding.id_product].t;
+    const series = history.cards[holding.id_product].p ?? [];
     const indexOf = new Map(history.dates.map((d, i) => [d, i]));
     let lastKnown = null;
     dates.forEach((date, i) => {
@@ -224,8 +242,8 @@ export function collectionGain(holdings, snapshot) {
   let unpriced = 0;
   for (const h of holdings) {
     if (h.paid_cents === null || h.paid_cents === undefined) { missing += h.qty; continue; }
-    const trend = snapshot.cards[h.id_product]?.[COL.trend];
-    if (trend === null || trend === undefined) { unpriced += h.qty; continue; }
+    const trend = priceOf(snapshot.cards[h.id_product]);
+    if (trend === null) { unpriced += h.qty; continue; }
     paidCents += h.paid_cents * h.qty;
     valueCents += trend * h.qty;
     count += h.qty;
@@ -238,11 +256,11 @@ const MIN_POINTS_LOW30 = 14;
 
 /** Statut d'une envie par rapport à son prix cible et à l'historique récent. */
 export function wishStatus(wish, row, history) {
-  const trend = row?.[COL.trend] ?? null;
+  const trend = priceOf(row);
   const target = wish.target_cents ?? null;
   const gapCents = trend !== null && target !== null ? trend - target : null;
   let low30 = false;
-  const series = history?.cards?.[wish.id_product]?.t;
+  const series = history?.cards?.[wish.id_product]?.p;
   if (trend !== null && series) {
     const recent = series.slice(-30).filter((v) => v !== null && v !== undefined);
     low30 = recent.length >= MIN_POINTS_LOW30 && trend <= Math.min(...recent);
@@ -344,7 +362,7 @@ export function album(catalog, holdings, { rarities, show = 'all' }) {
 export function albumByPrice(catalog, holdings, snapshot, { rarities, show = 'all', dir = 'desc' }) {
   const cards = album(catalog, holdings, { rarities, show })
     .flatMap((g) => g.cards)
-    .map((item) => ({ ...item, trend: snapshot.cards[item.card.id]?.[COL.trend] ?? null }));
+    .map((item) => ({ ...item, trend: priceOf(snapshot.cards[item.card.id]) }));
   const sign = dir === 'asc' ? 1 : -1;
   return cards.sort((a, b) => {
     if (a.trend === null || b.trend === null) return (a.trend === null) - (b.trend === null);
@@ -355,7 +373,7 @@ export function albumByPrice(catalog, holdings, snapshot, { rarities, show = 'al
 /** Les `n` cartes possédées au prix unitaire le plus élevé (pour la vitrine de l'accueil). */
 export function topOwned(holdings, catalog, snapshot, n = 3) {
   return holdings
-    .map((h) => ({ card: catalog.byId.get(h.id_product), trend: snapshot.cards[h.id_product]?.[COL.trend] ?? null }))
+    .map((h) => ({ card: catalog.byId.get(h.id_product), trend: priceOf(snapshot.cards[h.id_product]) }))
     .filter((x) => x.card && x.trend !== null)
     .sort((a, b) => b.trend - a.trend)
     .slice(0, n)

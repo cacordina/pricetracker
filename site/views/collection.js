@@ -1,6 +1,6 @@
 // Écran Collection : valeur totale, courbe et mosaïque des cartes possédées.
 import { loadHistories } from '../lib/data.js';
-import { COL, completion, collectionValue, collectionSeries, collectionGain, paidSeries, formatEuro, formatPct, rangeChange, sliceRange } from '../lib/metrics.js';
+import { COL, completion, collectionValue, collectionSeries, collectionGain, paidSeries, formatEuro, formatPct, rangeChange, sliceRange, priceOf } from '../lib/metrics.js';
 import { cardImg, chips, onChip, esc, RANGES, loadPrefs, savePrefs, storeProblem } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { staleBanner, wireStale } from '../lib/migrate.js';
@@ -9,7 +9,7 @@ const SORTS = [{ value: 'value', label: 'Par valeur' }, { value: 'change', label
 
 /** Plus-value d'une possession (centimes), ou null si le prix d'achat ou le prix du jour manque. */
 const gainOf = (item) => {
-  const trend = item.row?.[COL.trend] ?? null;
+  const trend = priceOf(item.row);
   return trend === null || item.paid_cents === null || item.paid_cents === undefined ? null : (trend - item.paid_cents) * item.qty;
 };
 
@@ -52,7 +52,7 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     const from = sliceRange(prices.dates, prefs.range);
     const change = rangeChange(prices.values.slice(from));
     const SORT_KEY = {
-      value: (i) => (i.row?.[COL.trend] ?? -1) * i.qty,
+      value: (i) => (priceOf(i.row) ?? -1) * i.qty,
       change: (i) => i.row?.[COL.d7] ?? -Infinity,
       gain: (i) => gainOf(i) ?? -Infinity,
     };
@@ -101,7 +101,7 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     renderPriceChart(root.querySelector('#chart'), {
       dates: series.dates,
       series: [{ label: 'Valeur', values: series.values }, ...(paid ? [{ label: 'Payé', values: paid, dash: true }] : [])],
-    }, prefs.range);
+    }, prefs.range, { empty: 'La courbe de valeur apparaîtra avec les prochains relevés.' });
     root.querySelector('#set').onchange = (e) => { prefs.set = e.target.value; savePrefs('collection', prefs); draw(); };
     root.querySelector('#signout').onclick = () => store.signOut();
     root.querySelector('#to-done').onclick = (e) => { e.preventDefault(); root.querySelector('#done').scrollIntoView({ behavior: 'smooth' }); };
@@ -126,7 +126,7 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
   }
 
   function tile(item) {
-    const trend = item.row?.[COL.trend] ?? null;
+    const trend = priceOf(item.row);
     const d7 = item.row?.[COL.d7] ?? null;
     const arrow = d7 > 0 ? ' <span class="up">▲</span>' : d7 < 0 ? ' <span class="down">▼</span>' : '';
     const image = item.card

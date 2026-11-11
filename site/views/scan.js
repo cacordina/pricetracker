@@ -2,7 +2,7 @@
 // À la première carte reconnue, elle s'arrête et affiche le résultat ; on relance pour la carte suivante.
 import { parseScan, mergeScans, createTracker, createEvidence } from '../lib/scan.js';
 import { prepare, readCardPasses } from '../lib/ocr.js';
-import { COL, displayName, formatEuro } from '../lib/metrics.js';
+import { COL, displayName, formatEuro, priceOf } from '../lib/metrics.js';
 import { cardImg, esc } from '../lib/ui.js';
 
 const CARD_RATIO = 63 / 88;
@@ -55,7 +55,7 @@ export async function render(root, { catalog, snapshot, store }) {
     .then((rows) => { owned = new Map(rows.map((r) => [r.id_product, r.qty])); connected = true; if (current) drawResult(); })
     .catch(() => {});
 
-  const price = (card) => snapshot.cards[card.id]?.[COL.trend] ?? null;
+  const price = (card) => priceOf(snapshot.cards[card.id]);
 
   // ---------- Caméra ----------
   function stop() {

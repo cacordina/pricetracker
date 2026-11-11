@@ -5,7 +5,7 @@ import { cardRow, chips, onChip, loadPrefs, savePrefs, esc } from '../lib/ui.js'
 import { frDate } from '../lib/chart.js';
 
 const DEFAULTS = { rarities: ['AR', 'SAR'], tab: 'up', window: 7, minEuros: 10, dealPct: 15, usPct: 20 };
-const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'all', label: 'Tout' }];
+const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'promo', label: 'Promos' }, { value: 'all', label: 'Tout' }];
 const TAB_CHIPS = [{ value: 'up', label: 'Hausses' }, { value: 'down', label: 'Baisses' }, { value: 'deals', label: 'Bonnes affaires' }, { value: 'us', label: 'Moins cher qu’aux US' }];
 const US_CHIPS = [10, 20, 40].map((v) => ({ value: String(v), label: `+${v} % ou plus` }));
 const WINDOW_CHIPS = [{ value: '7', label: '7 j' }, { value: '30', label: '30 j' }];
@@ -26,7 +26,9 @@ export async function render(root, { catalog, snapshot }) {
         minCents: prefs.minEuros * 100, dealRatio: 1 - prefs.dealPct / 100,
       });
     const approx = prefs.tab !== 'deals' && prefs.tab !== 'us' && snapshot.approx?.[prefs.window === 30 ? 'd30' : 'd7'];
-    const empty = prefs.tab === 'us'
+    const empty = approx
+      ? 'Pas encore de variation calculée.'
+      : prefs.tab === 'us'
       ? 'Aucune carte avec un tel écart avec ces filtres.'
       : prefs.tab === 'deals'
       ? 'Aucune bonne affaire avec ces filtres.'
@@ -42,7 +44,7 @@ export async function render(root, { catalog, snapshot }) {
         ? `<div class="muted">Prix du jour sous la moyenne 30 jours d’au moins :</div>${chips('deal', DEAL_CHIPS, String(prefs.dealPct))}`
         : chips('window', WINDOW_CHIPS, String(prefs.window))}
       ${chips('min', MIN_CHIPS, String(prefs.minEuros))}
-      ${approx ? '<div class="banner">Historique encore court : variation estimée par rapport à la moyenne Cardmarket.</div>' : ''}
+      ${approx ? `<div class="banner">Les variations sur ${prefs.window} jours apparaîtront après ${prefs.window} jours de relevés de la moyenne des ventes 7 j (prix suivi par le site depuis le changement). En attendant, voyez les bonnes affaires.</div>` : ''}
       ${list.length
         ? list.map(({ card, trend, change, usEur }) => cardRow(card, catalog.sets, { trend, change, ...(usEur !== undefined ? { sub: `TCGplayer ≈ ${formatEuro(usEur)}` } : {}) })).join('')
         : `<p class="state">${empty}</p>`}

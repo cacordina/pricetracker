@@ -1,8 +1,8 @@
 // Recherche d'une carte par nom (japonais ou anglais), extension ou numéro, filtrée par rareté.
-import { searchCards, COL } from '../lib/metrics.js';
+import { searchCards, COL, priceOf } from '../lib/metrics.js';
 import { cardRow, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 
-const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'all', label: 'Tout' }];
+const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'promo', label: 'Promos' }, { value: 'all', label: 'Tout' }];
 
 let lastQuery = '';
 
@@ -29,7 +29,7 @@ export async function render(root, { catalog, snapshot }) {
     results.innerHTML = found.length
       ? found.map((card) => {
         const row = snapshot.cards[card.id];
-        return cardRow(card, catalog.sets, { trend: row?.[COL.trend] ?? null, change: row?.[COL.d7] ?? null });
+        return cardRow(card, catalog.sets, { trend: priceOf(row), change: row?.[COL.d7] ?? null });
       }).join('') + (found.length === 60 ? '<p class="muted" style="text-align:center;margin-top:12px">60 premiers résultats : précisez la recherche.</p>' : '')
       : `<p class="state">Aucune carte trouvée${prefs.rarities ? ' avec ce filtre de rareté' : ''}.</p>`;
   }

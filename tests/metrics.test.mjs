@@ -13,6 +13,7 @@ const catalog = {
     { id: 5, t: 'M2-100', s: 'M2', n: '100', ja: 'リザードン', en: 'Mega Charizard', r: 'SAR' },
   ],
 };
+// Prix retenu par le site (priceOf) = avg7, sinon avg30, sinon trend.
 //                     trend   low  avg1  avg7  avg30   d7    d30
 const snapshot = { date: '2026-11-10', approx: { d7: false, d30: false }, cards: {
   803325: [10324, 6200, 10500, 11576, 11976, 18.0, -13.8],
@@ -80,28 +81,28 @@ test('marché : hausses (> 0) décroissantes, baisses (< 0) croissantes, sans le
   assert.deepEqual(ids(m.marketList(catalog, snapshot, { ...base, tab: 'up', window: 30 })), [4]);
   assert.equal(m.marketList(catalog, snapshot, { ...base, tab: 'up', window: 7 })[0].change, 18.0);
 });
-test('marché : bonnes affaires = trend ≤ avg30 × 0,85, triées par écart', () => {
+test('marché : bonnes affaires = moyenne 7 j ≤ moyenne 30 j × 0,85, triées par écart', () => {
   const deals = m.marketList(catalog, snapshot, { ...base, tab: 'deals' });
-  assert.deepEqual(ids(deals), [3, 5]);
-  assert.equal(deals[0].change, -50.1);
-  assert.deepEqual(ids(m.marketList(catalog, snapshot, { ...base, tab: 'deals', dealRatio: 0.9 })), [3, 5, 803325]);
+  assert.deepEqual(ids(deals), [3]); // 1000 contre 2002 ; Dracaufeu 5200 contre 6000 = −13,3 %, pas assez
+  assert.equal(deals[0].change, -50);
+  assert.deepEqual(ids(m.marketList(catalog, snapshot, { ...base, tab: 'deals', dealRatio: 0.9 })), [3, 5]);
 });
-test('marché : prix minimum et limite', () => {
-  assert.deepEqual(ids(m.marketList(catalog, snapshot, { ...base, minCents: 1000 })), [5, 803325]);
+test('marché : prix minimum (sur le prix retenu) et limite', () => {
+  assert.deepEqual(ids(m.marketList(catalog, snapshot, { ...base, minCents: 1000 })), [3, 5, 803325]);
   assert.equal(m.marketList(catalog, snapshot, { ...base, limit: 2 }).length, 2);
 });
 
 test('collection : valeur totale, cartes sans prix ou inconnues comptées à part', () => {
   const holdings = [{ id_product: 803325, qty: 2 }, { id_product: 803303, qty: 1 }, { id_product: 999999, qty: 3 }];
-  assert.deepEqual(m.collectionValue(holdings, snapshot), { totalCents: 2 * 10324 + 170, unpriced: 1, count: 6 });
-  const noTrend = { ...snapshot, cards: { ...snapshot.cards, 803303: [null, 75, null, null, null, null, null] } };
-  assert.deepEqual(m.collectionValue(holdings, noTrend), { totalCents: 20648, unpriced: 2, count: 6 });
+  assert.deepEqual(m.collectionValue(holdings, snapshot), { totalCents: 2 * 11576 + 163, unpriced: 1, count: 6 });
+  const noPrice = { ...snapshot, cards: { ...snapshot.cards, 803303: [null, 75, null, null, null, null, null] } };
+  assert.deepEqual(m.collectionValue(holdings, noPrice), { totalCents: 23152, unpriced: 2, count: 6 });
   assert.deepEqual(m.collectionValue([], snapshot), { totalCents: 0, unpriced: 0, count: 0 });
 });
 test('collection : courbe de valeur sur plusieurs extensions, dernier prix connu repris', () => {
   const histories = {
-    SV8a: { dates: ['2026-11-08', '2026-11-09', '2026-11-10'], cards: { 803325: { t: [100, null, 120] }, 803303: { t: [null, 10, 12] } } },
-    M2: { dates: ['2026-11-09', '2026-11-10'], cards: { 5: { t: [50, 55] } } },
+    SV8a: { dates: ['2026-11-08', '2026-11-09', '2026-11-10'], cards: { 803325: { p: [100, null, 120] }, 803303: { p: [null, 10, 12] } } },
+    M2: { dates: ['2026-11-09', '2026-11-10'], cards: { 5: { p: [50, 55] } } },
   };
   const holdings = [{ id_product: 803325, qty: 2 }, { id_product: 803303, qty: 1 }, { id_product: 5, qty: 1 }, { id_product: 999999, qty: 1 }];
   assert.deepEqual(m.collectionSeries(holdings, histories), {
@@ -113,7 +114,7 @@ test('collection : courbe de valeur sur plusieurs extensions, dernier prix connu
 });
 
 test('collection : avec les dates d’achat, une carte compte à partir de son achat', () => {
-  const histories = { SV8a: { dates: ['2026-11-08', '2026-11-09', '2026-11-10'], cards: { 803325: { t: [100, 110, 120] }, 803303: { t: [10, 10, 12] } } } };
+  const histories = { SV8a: { dates: ['2026-11-08', '2026-11-09', '2026-11-10'], cards: { 803325: { p: [100, 110, 120] }, 803303: { p: [10, 10, 12] } } } };
   const holdings = [{ id_product: 803325, qty: 2, bought_on: '2026-11-09' }, { id_product: 803303, qty: 1, bought_on: null }];
   assert.deepEqual(m.collectionSeries(holdings, histories, { fromPurchase: true }).values, [10, 230, 252]);
   assert.deepEqual(m.collectionSeries(holdings, histories).values, [210, 230, 252]); // sans l'option : prix seuls
@@ -131,12 +132,12 @@ test('collection : somme payée jour par jour', () => {
 });
 test('collection : plus-value sur les cartes dont le prix d’achat et le prix du jour sont connus', () => {
   const holdings = [
-    { id_product: 803325, qty: 2, paid_cents: 8000 }, // prix du jour 10324
+    { id_product: 803325, qty: 2, paid_cents: 8000 }, // prix du jour 11576 (moyenne 7 j)
     { id_product: 803303, qty: 1, paid_cents: null },
     { id_product: 999999, qty: 1, paid_cents: 500 },  // pas de prix du jour
   ];
   assert.deepEqual(m.collectionGain(holdings, snapshot), {
-    paidCents: 16000, valueCents: 20648, gainCents: 4648, pct: 29.1, count: 2, missing: 1, unpriced: 1,
+    paidCents: 16000, valueCents: 23152, gainCents: 7152, pct: 44.7, count: 2, missing: 1, unpriced: 1,
   });
   assert.deepEqual(m.collectionGain([{ id_product: 803325, qty: 1, paid_cents: 0 }], snapshot).pct, null); // carte reçue gratuitement
   assert.deepEqual(m.collectionGain([], snapshot), { paidCents: 0, valueCents: 0, gainCents: 0, pct: null, count: 0, missing: 0, unpriced: 0 });
@@ -144,14 +145,14 @@ test('collection : plus-value sur les cartes dont le prix d’achat et le prix d
 
 test('envies : statut', () => {
   const row = snapshot.cards[803325];
-  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 11000 }, row, null), { underTarget: true, gapCents: -676, low30: false, rising: true });
-  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 9000 }, row, null), { underTarget: false, gapCents: 1324, low30: false, rising: true });
+  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 12000 }, row, null), { underTarget: true, gapCents: -424, low30: false, rising: true });
+  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 11000 }, row, null), { underTarget: false, gapCents: 576, low30: false, rising: true });
   assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: null }, row, null), { underTarget: false, gapCents: null, low30: false, rising: true });
   assert.deepEqual(m.wishStatus({ id_product: 1, target_cents: 500 }, undefined, null), { underTarget: false, gapCents: null, low30: false, rising: false });
 });
 test('envies : « au plus bas sur 30 j » demande au moins 14 jours d’historique', () => {
   const row = [100, null, null, null, null, 0, 0];
-  const mk = (vals) => ({ dates: vals.map((_, i) => `d${i}`), cards: { 1: { t: vals } } });
+  const mk = (vals) => ({ dates: vals.map((_, i) => `d${i}`), cards: { 1: { p: vals } } });
   const wish = { id_product: 1, target_cents: null };
   assert.equal(m.wishStatus(wish, row, mk([...Array(13).fill(150), 100])).low30, true);
   assert.equal(m.wishStatus(wish, row, mk([...Array(12).fill(150), 100])).low30, false);
@@ -272,9 +273,9 @@ test('TCGplayer : conversion, écart et cartes moins chères en Europe', () => {
   assert.equal(m.usdToEur(100, null), null);
   assert.equal(m.usGap(10000, 12500), 25);
   assert.equal(m.usGap(10000, null), null);
-  const us = { rate: 1, cards: { 803325: 13000, 803303: 180 } }; // Sylveon 10324 → +25,9 % ; Brassius 170 → +5,9 %
+  const us = { rate: 1, cards: { 803325: 14500, 803303: 180 } }; // Nymphali 11576 → +25,3 % ; Brassius 163 → +10,4 %
   const list = m.cheaperInEurope(catalog, snapshot, us, { minGap: 20 });
-  assert.deepEqual(list.map((x) => [x.card.id, x.change, x.usEur]), [[803325, 25.9, 13000]]);
+  assert.deepEqual(list.map((x) => [x.card.id, x.change, x.usEur]), [[803325, 25.3, 14500]]);
   assert.equal(m.cheaperInEurope(catalog, snapshot, us, { minGap: 5 }).length, 2);
   assert.deepEqual(m.cheaperInEurope(catalog, snapshot, { rate: null, cards: {} }, {}), []);
 });
@@ -284,4 +285,13 @@ test('TCGplayer : courbe recalée sur les dates Cardmarket', () => {
   assert.deepEqual(m.alignTo(dates, ['2026-11-07', '2026-11-10'], [100, 120]), [100, 100, 120, null]);
   assert.deepEqual(m.alignTo(dates, ['2026-11-10', '2026-11-11'], [120, null]), [null, null, 120, null]);
   assert.deepEqual(m.alignTo(dates, [], []), [null, null, null, null]);
+});
+
+test('prix retenu : moyenne 7 j, sinon 30 j, sinon tendance — même règle que l’ingestion', async () => {
+  const { mainPrice } = await import('../scripts/lib/money.mjs');
+  const rows = [[75, 179, 189, 225, 293, null, null], [75, 179, 189, null, 293, null, null], [75, 179, 189, null, null, null, null], [null, 179, null, null, null, null, null]];
+  assert.deepEqual(rows.map(m.priceOf), [225, 293, 75, null]);
+  assert.deepEqual(rows.map(m.priceSource), ['avg7', 'avg30', 'trend', null]);
+  for (const r of rows) assert.equal(m.priceOf(r), mainPrice({ t: r[0], a7: r[3], a30: r[4] }));
+  assert.equal(m.priceOf(undefined), null);
 });

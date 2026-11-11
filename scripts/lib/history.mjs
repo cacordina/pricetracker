@@ -1,9 +1,11 @@
 /**
  * Historique d'une extension, en colonnes :
- *   { dates: ["2026-11-09", …], cards: { [idProduct]: { t: [], l: [], a: [] } } }
- * t = trend, l = low, a = avg1, en centimes ou null. Toutes les séries ont la longueur de `dates`.
+ *   { dates: ["2026-11-09", …], cards: { [idProduct]: { p: [], t: [], l: [], a: [] } } }
+ * p = prix retenu par le site (moyenne des ventes 7 j, voir mainPrice), t = tendance Cardmarket,
+ * l = plus bas en vente, a = moyenne 1 j ; en centimes ou null. Toutes les séries ont la longueur de `dates`
+ * (une série ajoutée après coup, comme p, commence par des vides).
  */
-const KEYS = ['t', 'l', 'a'];
+const KEYS = ['p', 't', 'l', 'a'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Ajoute un jour. Fonction pure : renvoie un nouvel historique, ou le même si la date est déjà là. */
@@ -18,7 +20,7 @@ export function appendDay(history, date, rows, ids) {
   const cards = {};
   for (const [id, series] of Object.entries(history?.cards ?? {})) {
     const row = rows.get(Number(id));
-    cards[id] = Object.fromEntries(KEYS.map((k) => [k, [...series[k], row?.[k] ?? null]]));
+    cards[id] = Object.fromEntries(KEYS.map((k) => [k, [...(series[k] ?? Array(before).fill(null)), row?.[k] ?? null]]));
   }
   for (const id of ids) {
     if (cards[id]) continue;
