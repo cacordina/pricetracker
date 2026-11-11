@@ -168,6 +168,8 @@ select.chip option { color: #000; }
 /* Fiche carte */
 .card-head { display: flex; gap: 16px; }
 .card-head img, .card-head .noimg { width: 44%; max-width: 210px; aspect-ratio: 63 / 88; border-radius: 4.5% / 3.2%; object-fit: cover; background: var(--panel); flex: none; box-shadow: 0 10px 26px #050615b3; }
+/* Fiche : l'image entière, à ses vraies proportions une fois chargée (format carte en attendant). */
+.card-head img { aspect-ratio: auto 63 / 88; height: auto; object-fit: contain; align-self: flex-start; }
 .card-head .info { min-width: 0; }
 .card-head h1 { font-size: 21px; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font: 600 15px/1.35 var(--num); margin-top: 10px; }
@@ -266,3 +268,18 @@ select.setpick { width: 100%; margin-top: 10px; padding: 10px 12px; border-radiu
 .top .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .top .back[hidden] { display: none; }
 .top.sub .brand .label { display: none; }
+
+/* Rareté en pastille sur les vignettes (coin bas gauche de l'image). */
+.tile .art { position: relative; display: block; }
+.tile .art .rar { position: absolute; left: 5px; bottom: 10px; font-size: 10px; padding: 2px 5px; }
+.tile .art .rar.ar, .tile .art .rar.sec { background: #0f1226d9; }
+
+/* Silhouettes d'attente : blocs gris avec un reflet qui passe (immobiles si l'on demande moins d'animations). */
+.skeleton { display: grid; gap: 10px; }
+.skeleton .grid { margin-top: 4px; }
+.sk { border-radius: 8px; background: linear-gradient(100deg, var(--panel) 30%, var(--panel-2) 50%, var(--panel) 70%) 0 0 / 300% 100%; animation: sk 1.3s linear infinite; }
+.sk + .sk { margin-top: 6px; }
+.sk-card { width: 100%; aspect-ratio: 63 / 88; border-radius: 4.5% / 3.2%; margin-bottom: 6px; }
+.sk-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+@keyframes sk { from { background-position: 100% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }

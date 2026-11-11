@@ -4,7 +4,7 @@ import { COL, completion, collectionValue, collectionSeries, collectionGain, pai
 import { cardImg, chips, onChip, esc, RANGES, loadPrefs, savePrefs, storeProblem } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { staleBanner, wireStale } from '../lib/migrate.js';
-import { filterPanel, trackPanel } from '../lib/cardgrid.js';
+import { filterPanel, trackPanel, tileArt } from '../lib/cardgrid.js';
 
 const SORTS = [{ value: 'value', label: 'Par valeur', quiet: true }, { value: 'change', label: 'Par variation' }, { value: 'gain', label: 'Par plus-value' }];
 const RARITY = [{ value: 'all', label: 'Toutes', quiet: true }, { value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }];
@@ -134,7 +134,7 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     const d7 = item.row?.[COL.d7] ?? null;
     const arrow = d7 > 0 ? ' <span class="up">▲</span>' : d7 < 0 ? ' <span class="down">▼</span>' : '';
     const image = item.card
-      ? cardImg(item.card, catalog.sets)
+      ? tileArt(item.card, catalog.sets)
       : `<div class="noimg">Carte inconnue<br>(n° ${item.id_product})</div>`;
     return `<a class="tile" href="#/carte/${item.id_product}">
       ${image}${item.qty > 1 ? `<span class="qty">×${item.qty}</span>` : ''}

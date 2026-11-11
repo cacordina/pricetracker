@@ -1,7 +1,7 @@
 // Briques communes aux écrans de cartes (extension, toutes les AR/SAR, marché) :
 // filtres regroupés derrière un bouton, interrupteur Parcourir / Ajouter, vignettes et ajout en un geste.
 import { formatEuro, displayName } from './metrics.js';
-import { cardImg, chips, esc } from './ui.js';
+import { cardImg, chips, esc, rarityTag } from './ui.js';
 
 /**
  * Filtres repliés derrière un bouton qui résume les choix en cours.
@@ -37,17 +37,20 @@ export const MODES = [{ value: 'browse', label: 'Parcourir' }, { value: 'add', l
  * Vignette d'une carte. Mode « browse » : lien vers la fiche ; mode « add » : toucher ajoute un exemplaire,
  * − et + règlent la quantité. `connected` : affiche l'état possédé (coche dorée).
  */
+/** Image d'une vignette, avec la pastille de rareté (AR, SAR, Secrète, Promo) dans le coin. */
+export const tileArt = (card, sets) => `<span class="art">${cardImg(card, sets)}${rarityTag(card).trim()}</span>`;
+
 export function cardTile({ card, qty, price }, { sets, mode = 'browse', connected = false, showSet = false }) {
   const caption = `<div class="muted">${showSet ? `${esc(card.s)} ` : ''}${esc(card.n)} · ${formatEuro(price)}</div>`;
   const badge = qty > 1 ? `<span class="qty">×${qty}</span>` : '';
   if (mode === 'add') {
     return `<div class="tile pick${qty ? ' owned' : ''}" data-id="${card.id}" role="button" tabindex="0" aria-pressed="${qty > 0}" aria-label="${esc(displayName(card))} ${esc(card.n)}${qty ? `, ${qty} possédée${qty > 1 ? 's' : ''}` : ', toucher pour ajouter'}">
-      ${cardImg(card, sets)}${badge}${caption}
+      ${tileArt(card, sets)}${badge}${caption}
       ${qty ? `<div class="stepper"><button type="button" data-step="-1" aria-label="Retirer un exemplaire">−</button><b>${qty}</b><button type="button" data-step="1" aria-label="Ajouter un exemplaire">+</button></div>` : ''}
     </div>`;
   }
   return `<a class="tile${connected ? ` pick${qty ? ' owned' : ''}` : ''}" href="#/carte/${card.id}" title="${esc(displayName(card))}">
-    ${cardImg(card, sets)}${badge}${caption}</a>`;
+    ${tileArt(card, sets)}${badge}${caption}</a>`;
 }
 
 /**

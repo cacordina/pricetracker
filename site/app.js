@@ -56,6 +56,22 @@ const keepScrolls = () => {
 window.addEventListener('pagehide', keepScrolls);
 document.addEventListener('visibilitychange', () => { if (document.hidden) keepScrolls(); });
 
+// Silhouette d'attente, à la forme de l'écran qui arrive (grille de cartes, liste ou fiche).
+const SKELETON_OF = { album: 'grid', extension: 'grid', collection: 'grid', marche: 'rows', recherche: 'rows', extensions: 'rows', envies: 'rows', carte: 'card' };
+function skeleton(name) {
+  const bar = (w, h = 14) => `<div class="sk" style="width:${w};height:${h}px"></div>`;
+  const kind = SKELETON_OF[name] ?? 'rows';
+  const head = `${bar('55%', 26)}${bar('35%')}`;
+  if (kind === 'card') {
+    return `<div class="skeleton"><div class="card-head"><div class="sk sk-card" style="width:44%;max-width:210px"></div>
+      <div style="flex:1">${bar('80%', 24)}${bar('50%')}${bar('60%', 40)}${bar('70%')}</div></div>${bar('100%', 60)}${bar('100%', 150)}</div>`;
+  }
+  if (kind === 'grid') {
+    return `<div class="skeleton">${head}${bar('100%', 44)}<div class="grid">${Array(9).fill(`<div><div class="sk sk-card"></div>${bar('70%', 12)}</div>`).join('')}</div></div>`;
+  }
+  return `<div class="skeleton">${head}${Array(7).fill(`<div class="sk-row"><div class="sk" style="width:50px;height:70px"></div><div style="flex:1">${bar('60%')}${bar('40%', 12)}</div>${bar('56px')}</div>`).join('')}</div>`;
+}
+
 async function render() {
   // Les liens de confirmation Supabase reviennent avec un hash qui n'est pas une route : on l'ignore.
   const [, name = 'accueil', param] = location.hash.match(/^#\/([a-z]+)(?:\/(.+))?$/) ?? [];
@@ -72,6 +88,8 @@ async function render() {
   backButton.dataset.route = name;
   document.querySelector('.top').classList.toggle('sub', sub);
   rendering = true;
+  // Au-delà d'un instant, la silhouette de l'écran attendu remplace l'ancien écran.
+  const waiting = setTimeout(() => { if (id === renderId) view.innerHTML = skeleton(name); }, 150);
   try {
     const [module, catalog, snapshot] = await Promise.all([load(), loadCatalog(), loadSnapshot()]);
     if (id !== renderId) return; // une autre navigation a eu lieu entre-temps
@@ -93,6 +111,7 @@ async function render() {
       <button class="btn sec" id="retry">Réessayer</button>`;
     view.querySelector('#retry').onclick = render;
   } finally {
+    clearTimeout(waiting);
     if (id === renderId) rendering = false; // une navigation plus récente garde la main
   }
 }
