@@ -119,8 +119,14 @@ select.chip option { color: #000; }
 .tile .muted { font: 600 13px/1.3 var(--num); }
 .tile .qty { position: absolute; top: 5px; right: 5px; background: var(--gold); color: #1a1505; border-radius: 99px; padding: 0 7px; font-size: 12px; font-weight: 700; }
 .tile.pick { cursor: pointer; }
-.tile.pick:not(.owned) img, .tile.pick:not(.owned) .noimg { opacity: .34; filter: saturate(.5); }
-.tile.pick.owned img { outline: 2px solid var(--gold); outline-offset: -2px; }
+/* Cartes non possédées : un peu en retrait mais bien lisibles ; possédées : liseré doré et coche. */
+.tile.pick:not(.owned) img, .tile.pick:not(.owned) .noimg { opacity: .7; filter: saturate(.65); }
+.tile.pick.owned img { outline: 3px solid var(--gold); outline-offset: -3px; }
+.tile.pick.owned::before {
+  content: '✓'; position: absolute; top: 5px; left: 5px; z-index: 1; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--gold); color: #1a1505; font: 800 13px/1 var(--font);
+  box-shadow: 0 1px 4px #05061599;
+}
 .tile.choice { background: none; border: 1px solid var(--line); border-radius: 10px; padding: 6px; cursor: pointer; }
 .stepper { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 3px; font: 700 16px var(--num); }
 .stepper button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 18px; line-height: 1; }
