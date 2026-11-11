@@ -51,6 +51,15 @@ test('imageUrl et cardmarketUrl', () => {
   assert.equal(m.cardmarketUrl(803325), 'https://www.cardmarket.com/fr/Pokemon/Products?idProduct=803325');
   assert.equal(m.cardmarketUrl(803325, { language: 7, sellerCountry: 12 }), 'https://www.cardmarket.com/fr/Pokemon/Products?idProduct=803325&language=7&sellerCountry=12');
 });
+test('ebaySoldUrl : ventes conclues, numéro sur le total officiel', () => {
+  const url = new URL(m.ebaySoldUrl(catalog.cards[0], { SV8a: { official: 187 } }));
+  assert.equal(url.origin + url.pathname, 'https://www.ebay.fr/sch/i.html');
+  assert.equal(url.searchParams.get('LH_Sold'), '1');
+  assert.equal(url.searchParams.get('LH_Complete'), '1');
+  assert.match(url.searchParams.get('_nkw'), /^pokemon Sylveon ex 212\/187 japanese$/);
+  const bare = new URL(m.ebaySoldUrl({ s: 'X', n: 'SV-P 001', en: null }, {}));
+  assert.equal(bare.searchParams.get('_nkw'), 'pokemon SV-P 001 japanese');
+});
 test('historyFile identique côté site et côté ingestion', () => {
   for (const id of ['SV8a', 'sm3+', 'a/b', 'S-P']) assert.equal(m.historyFile(id), historyFile(id));
 });

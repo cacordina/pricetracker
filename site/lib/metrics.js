@@ -39,6 +39,19 @@ export function cardmarketUrl(idProduct, filters = {}) {
   return `https://www.cardmarket.com/fr/Pokemon/Products?${params}`;
 }
 
+/**
+ * Recherche eBay limitée aux ventes conclues (annonces terminées et vendues), triée des plus récentes.
+ * eBay n'offre pas d'API publique pour ces ventes : on ouvre sa page de résultats.
+ */
+export function ebaySoldUrl(card, sets = {}) {
+  const name = card.en ? card.en.replace(/\s*\[.*\]\s*$/, '').trim() : '';
+  const official = sets[card.s]?.official;
+  const number = official && /^\d+$/.test(card.n) ? `${card.n}/${official}` : card.n;
+  const query = ['pokemon', name, number, 'japanese'].filter(Boolean).join(' ');
+  const params = new URLSearchParams({ _nkw: query, LH_Sold: 1, LH_Complete: 1, _sop: 13 });
+  return `https://www.ebay.fr/sch/i.html?${params}`;
+}
+
 const normalize = (text) => String(text ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const haystacks = new WeakMap();
 

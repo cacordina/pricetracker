@@ -1,6 +1,6 @@
-// Fiche d'une carte : image, prix, courbe, lien Cardmarket, collection et envies.
+// Fiche d'une carte : image, prix, courbe, liens Cardmarket et eBay, collection et envies.
 import { loadHistory } from '../lib/data.js';
-import { COL, displayName, formatEuro, cardmarketUrl, RARITY_LABEL } from '../lib/metrics.js';
+import { COL, displayName, formatEuro, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
 import { cardImg, chips, onChip, pctSpan, rarityTag, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { CARDMARKET_FILTERS } from '../config.js';
@@ -45,6 +45,8 @@ export async function render(root, { catalog, snapshot, store, param }) {
     <div class="muted">Le prix le plus bas peut correspondre à un exemplaire abîmé.</div>
     <a class="btn" href="${esc(cardmarketUrl(id, CARDMARKET_FILTERS))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>
     <div class="muted" style="text-align:center;margin-top:4px">Offres filtrées : cartes japonaises, vendeurs en France</div>
+    <a class="btn sec" href="${esc(ebaySoldUrl(card, catalog.sets))}" target="_blank" rel="noopener">Dernières ventes sur eBay ↗</a>
+    <div class="muted" style="text-align:center;margin-top:4px">Annonces vendues, les plus récentes d’abord</div>
     <div id="mine"></div>`;
 
   const chartEl = root.querySelector('#chart');

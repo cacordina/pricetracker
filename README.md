@@ -77,6 +77,7 @@ Node 22 ou plus, aucune dépendance à installer.
 
 ## Limites connues
 
+- eBay : la fiche carte ouvre la recherche des ventes conclues sur ebay.fr (nom anglais, numéro, « japanese »). Les prix ne sont pas importés : eBay ne donne accès à l'historique des ventes qu'à des partenaires agréés (API Marketplace Insights), et la lecture automatique de ses pages est interdite par ses conditions.
 - Les prix sont globaux par carte : ni l'état, ni la langue du vendeur. Le « plus bas » peut être un exemplaire abîmé.
 - L'historique commence à la mise en service.
 - La valeur passée de la collection applique les cartes possédées aujourd'hui aux prix d'hier ; les dates d'achat ne sont pas suivies.
