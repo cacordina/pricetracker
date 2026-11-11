@@ -35,3 +35,9 @@ export async function loadHistories(setIds) {
   const list = await Promise.all(unique.map((id) => loadHistory(id).catch(() => null)));
   return Object.fromEntries(unique.map((id, i) => [id, list[i]]).filter(([, h]) => h));
 }
+
+/** Prix TCGplayer du jour ({ date, rate, rateDate, cards }), ou null s'ils ne sont pas (encore) publiés. */
+export const loadUsSnapshot = () => getJson('us/snapshot.json', { optional: true }).catch(() => null);
+
+/** Historique TCGplayer d'une extension ({ dates, rates, cards }), ou null. */
+export const loadUsHistory = (setId) => getJson(`us/history/${historyFile(setId)}`, { optional: true }).catch(() => null);

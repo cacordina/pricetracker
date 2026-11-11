@@ -265,3 +265,23 @@ test('topOwned : cartes possédées les plus chères, sans les cartes inconnues 
   assert.deepEqual(m.topOwned(holdings, { ...catalog, byId: new Map(catalog.cards.map((c) => [c.id, c])) }, snapshot, 3).map((c) => c.id), [803325, 5, 4]);
   assert.deepEqual(m.topOwned([], { ...catalog, byId: new Map() }, snapshot, 3), []);
 });
+
+test('TCGplayer : conversion, écart et cartes moins chères en Europe', () => {
+  assert.equal(m.usdToEur(11050, 0.925926), 10231);
+  assert.equal(m.usdToEur(null, 0.9), null);
+  assert.equal(m.usdToEur(100, null), null);
+  assert.equal(m.usGap(10000, 12500), 25);
+  assert.equal(m.usGap(10000, null), null);
+  const us = { rate: 1, cards: { 803325: 13000, 803303: 180 } }; // Sylveon 10324 → +25,9 % ; Brassius 170 → +5,9 %
+  const list = m.cheaperInEurope(catalog, snapshot, us, { minGap: 20 });
+  assert.deepEqual(list.map((x) => [x.card.id, x.change, x.usEur]), [[803325, 25.9, 13000]]);
+  assert.equal(m.cheaperInEurope(catalog, snapshot, us, { minGap: 5 }).length, 2);
+  assert.deepEqual(m.cheaperInEurope(catalog, snapshot, { rate: null, cards: {} }, {}), []);
+});
+
+test('TCGplayer : courbe recalée sur les dates Cardmarket', () => {
+  const dates = ['2026-11-08', '2026-11-09', '2026-11-11', '2026-11-20'];
+  assert.deepEqual(m.alignTo(dates, ['2026-11-07', '2026-11-10'], [100, 120]), [100, 100, 120, null]);
+  assert.deepEqual(m.alignTo(dates, ['2026-11-10', '2026-11-11'], [120, null]), [null, null, 120, null]);
+  assert.deepEqual(m.alignTo(dates, [], []), [null, null, null, null]);
+});

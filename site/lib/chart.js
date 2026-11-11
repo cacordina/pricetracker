@@ -54,7 +54,7 @@ export function renderPriceChart(el, { dates, series }, range = '30', { height =
       {},
       ...series.map((s, i) => ({
         label: s.label,
-        stroke: s.color ?? (i === 0 ? text : muted),
+        stroke: s.color ? cssColor(css, s.color) : (i === 0 ? text : muted),
         width: i === 0 ? 2 : 1.25,
         dash: s.dash ? [4, 4] : undefined,
         spanGaps: false, // un jour sans relevé reste un trou : on n'invente pas de valeur
@@ -78,6 +78,12 @@ export function renderPriceChart(el, { dates, series }, range = '30', { height =
     el.dataset.resize = '1';
     new ResizeObserver(() => charts.get(el)?.setSize({ width: el.clientWidth, height })).observe(el);
   }
+}
+
+/** Le canevas ne comprend pas « var(--x) » : on lit la valeur de la variable. */
+function cssColor(css, color) {
+  const name = /^var\((--[\w-]+)\)$/.exec(color)?.[1];
+  return name ? css.getPropertyValue(name).trim() || color : color;
 }
 
 export function frDate(iso) {

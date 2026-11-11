@@ -13,6 +13,7 @@
   --holo: linear-gradient(110deg, #ff9ecb 0%, #ffe08a 28%, #8fe3c8 55%, #8ab8ff 78%, #c9a0ff 100%);
   --accent: var(--gold);
   --chart: #f2c14e;
+  --us: #7fb2ff;        /* courbe TCGplayer (États-Unis) */
   --tabs-h: 62px;
   --top-h: 52px;
   --font: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
@@ -145,6 +146,7 @@ select.chip option { color: #000; }
 .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
 .legend i { display: inline-block; width: 16px; border-top: 2px solid var(--chart); vertical-align: middle; margin-right: 5px; }
 .legend i.dash { border-top: 2px dashed var(--muted); }
+.legend i.us { border-top-color: var(--us); }
 
 /* Vitrine de l'accueil */
 .hero { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px 16px 16px; display: flex; gap: 12px; align-items: center; overflow: hidden; }

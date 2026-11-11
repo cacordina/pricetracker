@@ -1,8 +1,8 @@
 // Fiche d'une carte : image, prix, courbe, liens Cardmarket et eBay, collection et envies.
-import { loadHistory } from '../lib/data.js';
-import { COL, displayName, formatEuro, formatPct, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
+import { loadHistory, loadUsSnapshot, loadUsHistory } from '../lib/data.js';
+import { COL, displayName, formatEuro, formatPct, formatUsd, usdToEur, usGap, alignTo, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
 import { cardImg, chips, onChip, pctSpan, rarityTag, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
-import { renderPriceChart } from '../lib/chart.js';
+import { renderPriceChart, frDate } from '../lib/chart.js';
 import { CARDMARKET_FILTERS } from '../config.js';
 
 export async function render(root, { catalog, snapshot, store, param }) {
@@ -16,9 +16,17 @@ export async function render(root, { catalog, snapshot, store, param }) {
   const row = snapshot.cards[id];
   const set = catalog.sets[card.s];
   const prefs = loadPrefs('card', { range: '30' });
-  const history = await loadHistory(card.s).catch(() => null);
+  const [history, us, usHistory] = await Promise.all([
+    loadHistory(card.s).catch(() => null), loadUsSnapshot(), loadUsHistory(card.s),
+  ]);
   const series = history?.cards?.[id];
   const priced = row && row[COL.trend] !== null;
+  // TCGplayer : prix en dollars, convertis au taux BCE du jour du relevé.
+  const usd = us?.cards?.[id] ?? null;
+  const usEur = usdToEur(usd, us?.rate);
+  const usSeries = usHistory?.cards?.[id]
+    ? alignTo(history?.dates ?? [], usHistory.dates, usHistory.cards[id].map((v, i) => usdToEur(v, usHistory.rates?.[i] ?? us?.rate)))
+    : null;
 
   root.innerHTML = `
     <div class="card-head">
@@ -38,9 +46,10 @@ export async function render(root, { catalog, snapshot, store, param }) {
           </div>` : '<p class="muted" style="margin-top:10px">Pas de prix publié par Cardmarket pour cette carte.</p>'}
       </div>
     </div>
+    ${usBlock()}
     <div class="chart" id="chart"></div>
     <div class="muted readout" style="min-height:1.4em"></div>
-    <div class="legend"><span><i></i>tendance</span><span><i class="dash"></i>prix le plus bas</span></div>
+    <div class="legend"><span><i></i>tendance</span><span><i class="dash"></i>prix le plus bas</span>${usSeries?.some((v) => v !== null) ? '<span><i class="us"></i>TCGplayer (€)</span>' : ''}</div>
     ${chips('range', RANGES, prefs.range)}
     <div class="muted">Le prix le plus bas peut correspondre à un exemplaire abîmé.</div>
     <a class="btn" href="${esc(cardmarketUrl(id, CARDMARKET_FILTERS))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>
@@ -55,9 +64,24 @@ export async function render(root, { catalog, snapshot, store, param }) {
     series: [
       { label: 'Tendance', values: series?.t ?? [] },
       { label: 'Plus bas', values: series?.l ?? [], dash: true },
+      ...(usSeries ? [{ label: 'TCGplayer', values: usSeries, color: 'var(--us)' }] : []),
     ],
   }, prefs.range);
   root._draw = drawChart;
+
+  function usBlock() {
+    if (!us) return ''; // prix TCGplayer pas encore publiés
+    if (usd === null) return '<p class="muted" style="margin-top:12px">Pas de prix de marché TCGplayer (États-Unis) pour cette carte.</p>';
+    const gap = priced ? usGap(row[COL.trend], usEur) : null;
+    return `<div class="box us">
+      <div class="line"><span>TCGplayer <span class="muted">États-Unis</span></span><b>${formatUsd(usd)}</b></div>
+      <div class="line" style="margin-top:2px">
+        <span class="muted">${usEur !== null ? `≈ ${formatEuro(usEur)}` : ''}</span>
+        <span class="muted">${gap === null ? '' : gap ? `${formatPct(gap)} par rapport à Cardmarket` : 'même prix que Cardmarket'}</span>
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:6px">Prix de marché (ventes récentes), relevé du ${esc(frDate(us.date))}${us.rate ? ` · 1 $ = ${us.rate.toFixed(4).replace('.', ',')} € (BCE)` : ''}</div>
+    </div>`;
+  }
 
   onChip(root, (group, value) => {
     if (group !== 'range') return;

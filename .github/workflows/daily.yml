@@ -39,6 +39,12 @@ jobs:
         if: github.event_name != 'push'
         run: node scripts/ingest.mjs --data data
 
+      # Complément : une panne de TCGplayer, de tcgcsv ou de la BCE ne bloque ni les prix Cardmarket ni la publication.
+      - name: Ajouter les prix TCGplayer
+        if: github.event_name != 'push'
+        continue-on-error: true
+        run: node scripts/ingest-us.mjs --data data
+
       - name: Enregistrer les données
         id: save
         if: github.event_name != 'push'
@@ -50,9 +56,10 @@ jobs:
           if git diff --cached --quiet; then
             echo "Rien de nouveau."
           else
+            # « nouveau jour » = nouveaux prix Cardmarket, pas une simple mise à jour TCGplayer (alertes envoyées une fois)
+            git diff --cached --quiet -- snapshot.json || echo "new=true" >> "$GITHUB_OUTPUT"
             git commit -q -m "données du $(node -p "require('./snapshot.json').date")"
             git push
-            echo "new=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Assembler le site
@@ -61,6 +68,7 @@ jobs:
           cp -R site/. _site/
           cp data/catalog.json data/snapshot.json _site/data/
           cp -R data/history _site/data/history
+          if [ -d data/us ]; then cp -R data/us _site/data/us; fi
           node scripts/build-sw.mjs _site
       - uses: actions/upload-pages-artifact@v3
         with:

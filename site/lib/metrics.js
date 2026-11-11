@@ -13,6 +13,9 @@ export function formatEuro(cents) {
   return `${cents < 0 ? '−' : ''}${int.replace(/\B(?=(\d{3})+$)/g, THIN)},${dec}${NBSP}€`;
 }
 
+/** Centimes de dollar → « 85,20 $ ». */
+export const formatUsd = (cents) => formatEuro(cents).replace('€', '$');
+
 export function formatPct(value) {
   if (value === null || value === undefined) return '—';
   const sign = value > 0 ? '+' : value < 0 ? '−' : '';
@@ -103,6 +106,54 @@ export function marketList(catalog, snapshot, { rarities = null, tab = 'up', win
   }
   out.sort((a, b) => (tab === 'up' ? b.change - a.change : a.change - b.change));
   return out.slice(0, limit);
+}
+
+/** Prix TCGplayer en centimes de dollar → centimes d'euro au taux donné (euros pour un dollar), ou null. */
+export function usdToEur(usdCents, rate) {
+  if (usdCents === null || usdCents === undefined || !(rate > 0)) return null;
+  return Math.round(usdCents * rate);
+}
+
+/** Écart du prix américain (converti en euros) par rapport à Cardmarket, en %, ou null. */
+export function usGap(cardmarketCents, usEurCents) {
+  if (!cardmarketCents || usEurCents === null || usEurCents === undefined) return null;
+  return round1(((usEurCents - cardmarketCents) / cardmarketCents) * 100);
+}
+
+/**
+ * Cartes nettement moins chères sur Cardmarket qu'aux États-Unis : écart TCGplayer ≥ `minGap` %.
+ * Triées par écart décroissant.
+ */
+export function cheaperInEurope(catalog, snapshot, us, { rarities = null, minCents = 0, minGap = 20, limit = 100 }) {
+  if (!us?.rate) return [];
+  const out = [];
+  for (const card of catalog.cards) {
+    if (rarities && !rarities.includes(card.r)) continue;
+    const trend = snapshot.cards[card.id]?.[COL.trend];
+    if (trend === null || trend === undefined || trend < minCents) continue;
+    const usEur = usdToEur(us.cards[card.id], us.rate);
+    const change = usGap(trend, usEur);
+    if (change === null || change < minGap) continue;
+    out.push({ card, trend, change, usEur });
+  }
+  return out.sort((a, b) => b.change - a.change).slice(0, limit);
+}
+
+/**
+ * Recale une série sur d'autres dates : pour chaque date, la dernière valeur connue à cette date ou avant,
+ * si elle n'a pas plus de `maxDays` jours (les relevés américains et Cardmarket n'ont pas la même date).
+ */
+export function alignTo(dates, otherDates, otherValues, maxDays = 3) {
+  const day = (d) => Date.parse(`${d}T00:00:00Z`) / 86400000;
+  let j = -1;
+  return dates.map((date) => {
+    while (j + 1 < otherDates.length && otherDates[j + 1] <= date) j += 1;
+    for (let k = j; k >= 0 && day(date) - day(otherDates[k]) <= maxDays; k -= 1) {
+      const v = otherValues[k];
+      if (v !== null && v !== undefined) return v;
+    }
+    return null;
+  });
 }
 
 /** Valeur actuelle de la collection. `unpriced` = lignes sans prix (ou carte inconnue). */
