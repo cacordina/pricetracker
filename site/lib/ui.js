@@ -1,5 +1,5 @@
 // Petits utilitaires d'affichage partagés par les écrans.
-import { imageUrls, displayName, formatEuro, formatPct, RARITY_LABEL } from './metrics.js';
+import { imageUrls, setImageUrl, displayName, formatEuro, formatPct, RARITY_LABEL } from './metrics.js';
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
@@ -10,6 +10,17 @@ export function cardImg(card, sets, quality = 'low') {
   const label = card ? esc(displayName(card)) : 'Carte inconnue';
   if (!urls.length) return `<div class="noimg">${label}</div>`;
   return `<img src="${esc(urls[0])}" alt="${label}" loading="lazy" referrerpolicy="no-referrer" data-next="${esc(urls.slice(1).join(' '))}" onerror="imgFallback(this)">`;
+}
+
+/**
+ * Image d'une extension : son produit scellé (display, booster) ; à défaut, ou si elle ne charge pas,
+ * la carte donnée (en général la plus chère de l'extension).
+ */
+export function setImg(set, card, sets, quality = 'low') {
+  const urls = [setImageUrl(set, quality), ...(card ? imageUrls(card, sets, quality) : [])].filter(Boolean);
+  const label = esc(set?.en ?? set?.name ?? '');
+  if (!urls.length) return `<div class="noimg setimg">${label}</div>`;
+  return `<img class="setimg" src="${esc(urls[0])}" alt="${label}" loading="lazy" referrerpolicy="no-referrer" data-next="${esc(urls.slice(1).join(' '))}" onerror="imgFallback(this)">`;
 }
 
 // Appelée quand une image ne charge pas : passe à l'adresse suivante, sinon affiche le repli.

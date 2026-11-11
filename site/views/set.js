@@ -1,7 +1,7 @@
 // Une extension : toutes ses cartes avec leur prix. Deux modes : Parcourir (toucher ouvre la fiche)
 // et Ajouter à ma collection (toucher ajoute un exemplaire). Remplace l'ancien écran « Ajouter par série ».
 import { setsOverview, setCards, seriesOf, SERIES, formatEuro } from '../lib/metrics.js';
-import { chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
+import { setImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { filterPanel, trackPanel, cardTile, wireAdding, MODES } from '../lib/cardgrid.js';
 import { frDate } from '../lib/chart.js';
 
@@ -54,10 +54,16 @@ export async function render(root, { catalog, snapshot, store, param }) {
       { key: 'sort', label: 'Trier', options: SORT, value: prefs.sort },
     ];
     root.innerHTML = `
-      <div class="toolbar"><h1>${esc(setId)}</h1><a class="link" href="#/extensions">Toutes les extensions</a></div>
-      ${set.en ? `<div><b>${esc(set.en)}</b></div>` : ''}
-      <div class="muted">${esc(set.name)}</div>
-      <div class="muted">${esc(seriesOf(setId, set.date).name)}${set.date ? ` · sortie le ${esc(frDate(set.date))}` : ''}</div>
+      <div class="toolbar"><span></span><a class="link" href="#/extensions">Toutes les extensions</a></div>
+      <div class="set-head">
+        ${setImg(set, info.top, catalog.sets, 'high')}
+        <div>
+          <h1 style="margin:0">${esc(setId)}</h1>
+          ${set.en ? `<div><b>${esc(set.en)}</b></div>` : ''}
+          <div class="muted">${esc(set.name)}</div>
+          <div class="muted">${esc(seriesOf(setId, set.date).name)}${set.date ? ` · ${esc(frDate(set.date))}` : ''}</div>
+        </div>
+      </div>
       <div style="margin-top:6px">${info.total} cartes · complète <b>${formatEuro(info.valueCents || null)}</b>${connected ? ` · possédées <b>${info.owned}/${info.total}</b>` : ''}</div>
       ${setPicker(catalog, setId)}
       ${connected ? `<div class="modes">${chips('mode', MODES, prefs.mode)}</div>` : ''}

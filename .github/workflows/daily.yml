@@ -5,6 +5,10 @@ on:
     - cron: '17 5 * * *'    # Cardmarket publie pendant la nuit ; second passage en rattrapage
     - cron: '17 11 * * *'
   workflow_dispatch:
+  # Republie le site après une reconstruction du catalogue (noms, raretés, images à jour sans attendre le lendemain).
+  workflow_run:
+    workflows: ['Catalogue japonais (hebdomadaire)']
+    types: [completed]
   push:
     branches: [main]
     paths: ['site/**']
@@ -20,6 +24,7 @@ concurrency:
 
 jobs:
   update:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

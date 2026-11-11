@@ -54,6 +54,11 @@ export function imageUrls(card, sets, quality = 'low') {
 
 export const imageUrl = (card, sets, quality = 'low') => imageUrls(card, sets, quality)[0] ?? null;
 
+/** Image d'une extension : photo TCGplayer de son produit scellé (display, booster…), ou null. */
+export function setImageUrl(set, quality = 'low') {
+  return set?.box ? `https://tcgplayer-cdn.tcgplayer.com/product/${set.box}_${quality === 'high' ? 'in_1000x1000' : '200w'}.jpg` : null;
+}
+
 /** Fiche Cardmarket d'une carte ; `filters` ajoute des filtres d'offres (ex. { language: 7, sellerCountry: 12 }). */
 export function cardmarketUrl(idProduct, filters = {}) {
   const params = new URLSearchParams({ idProduct, ...filters });

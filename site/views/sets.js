@@ -1,7 +1,7 @@
 // Extensions : toutes celles du catalogue japonais, rangées par grande série (Méga-Évolution, Écarlate et Violet…),
 // des plus récentes aux plus anciennes.
 import { setsOverview, seriesOf, SERIES, formatEuro } from '../lib/metrics.js';
-import { cardImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
+import { setImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 
 const SHOW = [{ value: 'all', label: 'Tout afficher' }, { value: 'started', label: 'Commencées seulement' }];
 const norm = (text) => String(text ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -57,7 +57,7 @@ export async function render(root, { catalog, snapshot, store }) {
       ? `<div class="muted">${e.owned}/${e.total}${e.owned === e.total ? ' ✓' : ''}</div>`
       : `<div class="muted">${e.total} cartes</div>`;
     return `<a class="row" href="#/extension/${encodeURIComponent(e.set)}">
-      ${e.top ? cardImg(e.top, catalog.sets) : '<div class="noimg"></div>'}
+      ${setImg(catalog.sets[e.set], e.top, catalog.sets)}
       <div class="name"><b>${esc(e.set)}</b> <span class="muted">${esc(date)}</span>
         ${catalog.sets[e.set]?.en ? `<div>${esc(catalog.sets[e.set].en)}</div>` : ''}<div class="muted">${esc(e.name)}</div></div>
       <div class="price">${formatEuro(e.valueCents || null)}${progress}</div></a>`;

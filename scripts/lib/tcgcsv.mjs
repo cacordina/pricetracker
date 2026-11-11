@@ -100,13 +100,14 @@ export async function fetchGroups(knownSetIds, { fetchImpl = fetch, delayMs = 12
     const setId = known.get(abbr.toLowerCase()) ?? abbr;
     if (out[setId]) continue;
     try {
-      const index = indexProducts(await get(`/${group.groupId}/products`));
+      const products = await get(`/${group.groupId}/products`);
+      const index = indexProducts(products);
       const cards = [...index.values()].map((e) => ({ number: e.number, name: e.name, rarity: e.rarity, productId: e.productId }));
       // total officiel = dénominateur le plus fréquent (« 091/063 » → 63)
       const totals = new Map();
       for (const e of index.values()) if (/^\d+$/.test(e.total ?? '')) totals.set(Number(e.total), (totals.get(Number(e.total)) ?? 0) + 1);
       const [official] = [...totals].sort((a, b) => b[1] - a[1])[0] ?? [null];
-      out[setId] = { name: group.name, date: group.publishedOn?.slice(0, 10) ?? null, official, index, cards };
+      out[setId] = { name: group.name, date: group.publishedOn?.slice(0, 10) ?? null, official, index, cards, box: sealedProduct(products) };
     } catch (err) {
       log(`tcgcsv ${setId}: ${err.message}`);
     }
@@ -118,12 +119,32 @@ export async function fetchGroups(knownSetIds, { fetchImpl = fetch, delayMs = 12
 /** Nom anglais TCGplayer d'une extension, sans le code en tête : « SV11B: Black Bolt » → « Black Bolt ». */
 export const englishSetName = (groupName) => String(groupName ?? '').replace(/^[^:]{1,12}:\s*/, '').trim() || null;
 
-/** Ajoute `en` (nom anglais TCGplayer) aux extensions du catalogue ; ne retire jamais une valeur existante. */
-export function addEnglishSetNames(catalog, groups) {
+// Produit scellé qui sert d'image à l'extension : la display (booster box) d'abord, puis le booster, puis un coffret.
+const SEALED = [/booster box|display/i, /booster pack|booster\b/i, /box|collection|set\b/i, /deck/i];
+
+/** Identifiant TCGplayer du produit scellé le plus représentatif d'une extension (sans numéro de carte), ou null. */
+export function sealedProduct(products) {
+  let best = null;
+  for (const p of products) {
+    if ((p.extendedData ?? []).some((e) => e.name === 'Number')) continue; // une carte, pas un produit scellé
+    const rank = SEALED.findIndex((re) => re.test(p.name ?? ''));
+    if (rank < 0) continue;
+    if (!best || rank < best.rank || (rank === best.rank && p.productId < best.id)) best = { rank, id: p.productId };
+  }
+  return best?.id ?? null;
+}
+
+/**
+ * Ajoute aux extensions du catalogue leur nom anglais TCGplayer (`en`) et leur produit scellé (`box`, pour l'image) ;
+ * ne retire jamais une valeur existante.
+ */
+export function addSetInfo(catalog, groups) {
   for (const [setId, group] of Object.entries(groups)) {
     const set = catalog.sets[setId];
+    if (!set) continue;
     const en = englishSetName(group.name);
-    if (set && en && en !== set.name) set.en = en;
+    if (en && en !== set.name) set.en = en;
+    if (group.box) set.box = group.box;
   }
   return catalog;
 }
