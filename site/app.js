@@ -22,6 +22,27 @@ const TAB_OF = { ajout: 'collection', album: 'collection', recherche: null, cart
 const view = document.getElementById('view');
 let renderId = 0;
 
+// Retour arrière : chaque page visitée (entrée d'historique) garde sa position de défilement,
+// pour revenir au même endroit d'une liste après avoir ouvert une carte. Une nouvelle page s'ouvre en haut.
+history.scrollRestoration = 'manual';
+const SCROLLS_KEY = 'carnet:scrolls';
+const scrolls = new Map((() => { try { return Object.entries(JSON.parse(sessionStorage.getItem(SCROLLS_KEY) ?? '{}')); } catch { return []; } })());
+let rendering = false; // pendant un changement d'écran, le défilement ne doit rien écraser
+const entryId = () => history.state?.carnet ?? null;
+function markEntry() {
+  history.replaceState({ ...(history.state ?? {}), carnet: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}` }, '');
+}
+window.addEventListener('scroll', () => {
+  const entry = entryId();
+  if (!rendering && entry) scrolls.set(entry, Math.round(window.scrollY));
+}, { passive: true });
+// Gardé pour la session (rechargement, mise à jour du site) ; seules les 60 dernières pages comptent.
+const keepScrolls = () => {
+  try { sessionStorage.setItem(SCROLLS_KEY, JSON.stringify(Object.fromEntries([...scrolls].slice(-60)))); } catch { /* stockage bloqué */ }
+};
+window.addEventListener('pagehide', keepScrolls);
+document.addEventListener('visibilitychange', () => { if (document.hidden) keepScrolls(); });
+
 async function render() {
   // Les liens de confirmation Supabase reviennent avec un hash qui n'est pas une route : on l'ignore.
   const [, name = 'accueil', param] = location.hash.match(/^#\/([a-z]+)(?:\/(.+))?$/) ?? [];
@@ -33,6 +54,7 @@ async function render() {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
   }
   for (const link of document.querySelectorAll('.top [data-top]')) link.classList.toggle('on', link.dataset.top === name);
+  rendering = true;
   try {
     const [module, catalog, snapshot] = await Promise.all([load(), loadCatalog(), loadSnapshot()]);
     if (id !== renderId) return; // une autre navigation a eu lieu entre-temps
@@ -40,14 +62,20 @@ async function render() {
     await module.render(root, { catalog, snapshot, store, param: param ? decodeURIComponent(param) : null, refresh: render });
     if (id !== renderId) return;
     view.replaceChildren(root);
-    if (name !== 'ajout') window.scrollTo(0, 0);
+    const entry = entryId();
+    const saved = entry ? scrolls.get(entry) : undefined;
+    if (saved === undefined && name !== 'ajout') window.scrollTo(0, 0);
     module.mounted?.(root); // après le retour en haut : un écran peut se placer ailleurs (album)
+    if (saved !== undefined) window.scrollTo(0, saved); // retour arrière : l'endroit où l'on était
+    if (!entry) markEntry();
   } catch (err) {
     if (id !== renderId) return;
     console.error(err);
     view.innerHTML = `<p class="state">Impossible de charger les données.<br><span class="muted">${esc(err.message)}</span></p>
       <button class="btn sec" id="retry">Réessayer</button>`;
     view.querySelector('#retry').onclick = render;
+  } finally {
+    if (id === renderId) rendering = false; // une navigation plus récente garde la main
   }
 }
 
