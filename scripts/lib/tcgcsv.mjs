@@ -114,3 +114,16 @@ export async function fetchGroups(knownSetIds, { fetchImpl = fetch, delayMs = 12
   }
   return out;
 }
+
+/** Nom anglais TCGplayer d'une extension, sans le code en tête : « SV11B: Black Bolt » → « Black Bolt ». */
+export const englishSetName = (groupName) => String(groupName ?? '').replace(/^[^:]{1,12}:\s*/, '').trim() || null;
+
+/** Ajoute `en` (nom anglais TCGplayer) aux extensions du catalogue ; ne retire jamais une valeur existante. */
+export function addEnglishSetNames(catalog, groups) {
+  for (const [setId, group] of Object.entries(groups)) {
+    const set = catalog.sets[setId];
+    const en = englishSetName(group.name);
+    if (set && en && en !== set.name) set.en = en;
+  }
+  return catalog;
+}

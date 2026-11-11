@@ -29,3 +29,14 @@ test('enrichit le catalogue : image de secours et rareté de secours', () => {
   assert.deepEqual([catalog.cards[2].g, catalog.cards[2].q2], [123, 'Vieux']); // extension chargée mais carte absente : on garde l'existant
   assert.equal(catalog.cards[3].g, undefined);
 });
+
+test('noms anglais des extensions (TCGplayer), sans le code en tête', async () => {
+  const { englishSetName, addEnglishSetNames } = await import('../scripts/lib/tcgcsv.mjs');
+  assert.equal(englishSetName('SV11B: Black Bolt'), 'Black Bolt');
+  assert.equal(englishSetName('SM: The Best of XY'), 'The Best of XY');
+  assert.equal(englishSetName('Terastal Festival ex'), 'Terastal Festival ex');
+  assert.equal(englishSetName(''), null);
+  const catalog = { sets: { SV11B: { name: 'ブラックボルト' }, X: { name: 'Same' } } };
+  addEnglishSetNames(catalog, { SV11B: { name: 'SV11B: Black Bolt' }, X: { name: 'Same' }, Y: { name: 'Y: Nope' } });
+  assert.deepEqual(catalog.sets, { SV11B: { name: 'ブラックボルト', en: 'Black Bolt' }, X: { name: 'Same' } });
+});

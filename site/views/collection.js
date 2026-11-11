@@ -4,8 +4,10 @@ import { COL, completion, collectionValue, collectionSeries, collectionGain, pai
 import { cardImg, chips, onChip, esc, RANGES, loadPrefs, savePrefs, storeProblem } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { staleBanner, wireStale } from '../lib/migrate.js';
+import { filterPanel, trackPanel } from '../lib/cardgrid.js';
 
-const SORTS = [{ value: 'value', label: 'Par valeur' }, { value: 'change', label: 'Par variation' }, { value: 'gain', label: 'Par plus-value' }];
+const SORTS = [{ value: 'value', label: 'Par valeur', quiet: true }, { value: 'change', label: 'Par variation' }, { value: 'gain', label: 'Par plus-value' }];
+const RARITY = [{ value: 'all', label: 'Toutes', quiet: true }, { value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }];
 
 /** Plus-value d'une possession (centimes), ou null si le prix d'achat ou le prix du jour manque. */
 const gainOf = (item) => {
@@ -29,6 +31,8 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     return;
   }
 
+  const panel = { open: false };
+  trackPanel(root, panel);
   const prefs = loadPrefs('collection', { range: '30', filter: 'all', set: '', sort: 'value', done: ['AR'], doneAll: false });
   // Chaque possession avec sa carte (ou null si elle a disparu du catalogue).
   const items = holdings.map((h) => ({ ...h, card: catalog.byId.get(h.id_product) ?? null, row: snapshot.cards[h.id_product] }));
@@ -76,14 +80,14 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
       <div class="muted readout" style="min-height:1.4em"></div>
       ${paid ? '<div class="legend"><span><i></i>valeur</span><span><i class="dash"></i>payé</span></div>' : ''}
       ${chips('range', RANGES, prefs.range)}
-      <div class="chips" data-group="filter">
-        ${[['all', 'Toutes'], ['AR', 'AR'], ['SAR', 'SAR']].map(([v, l]) => `<button type="button" class="chip${prefs.filter === v ? ' on' : ''}" data-value="${v}">${l}</button>`).join('')}
-        <select class="chip${prefs.set ? ' on' : ''}" id="set" aria-label="Filtrer par extension">
+      ${filterPanel([
+        { key: 'filter', label: 'Rareté', options: RARITY, value: prefs.filter },
+        { label: 'Extension', summary: prefs.set, html: `<select class="setpick" id="set" aria-label="Filtrer par extension" style="margin-top:4px">
           <option value="">Toutes les extensions</option>
-          ${ownedSets.sort().map((s) => `<option value="${esc(s)}"${prefs.set === s ? ' selected' : ''}>${esc(s)} — ${esc(catalog.sets[s]?.name ?? '')}</option>`).join('')}
-        </select>
-      </div>
-      ${chips('sort', SORTS, prefs.sort)}
+          ${ownedSets.sort().map((s) => `<option value="${esc(s)}"${prefs.set === s ? ' selected' : ''}>${esc(s)} — ${esc(catalog.sets[s]?.en ?? catalog.sets[s]?.name ?? '')}</option>`).join('')}
+        </select>` },
+        { key: 'sort', label: 'Trier', options: SORTS, value: prefs.sort },
+      ], { open: panel.open })}
       ${sorted.length ? `<div class="grid">${sorted.map(tile).join('')}</div>` : '<p class="state">Aucune carte avec ces filtres.</p>'}
       <h2 id="done">Complétion</h2>
       <div class="chips" data-group="done">

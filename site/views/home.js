@@ -29,7 +29,7 @@ export async function render(root, { catalog, snapshot, store }) {
   root.innerHTML = `
     ${hero()}
     <div class="quick">
-      <a href="#/ajout">${ICON.add}Ajouter par série</a>
+      <a href="#/ajout">${ICON.add}Ajouter des cartes</a>
       <a href="#/album">${ICON.album}Toutes les AR</a>
       <a href="#/extensions">${ICON.sets}Extensions</a>
       <a href="#/recherche">${ICON.search}Chercher une carte</a>

@@ -46,7 +46,7 @@ Quand ni TCGdex ni la source de secours ne donnent la rareté d'une carte, elle 
 { "803325": "SAR", "803303": "AR" }
 ```
 
-Valeurs acceptées : `AR`, `SAR`, `promo`, `secret`, `regular`. Les promos (rareté « Promo » ou extension de promos comme `M-P`) sont classées à part automatiquement. La correction s'applique à la reconstruction suivante du catalogue (lundi, ou *Run workflow* sur *Catalogue japonais*).
+Valeurs acceptées : `AR`, `SAR`, `promo`, `secret`, `regular`. Les promos (rareté « Promo » ou extension de promos comme `M-P`) sont classées à part automatiquement. La correction s'applique à la reconstruction suivante du catalogue (lundi, ou *Run workflow* sur *Catalogue japonais*). En lançant à la main, cocher « Rapide » recalcule raretés, noms anglais des extensions et images en quelques minutes, sans réinterroger TCGdex.
 
 ## Travailler en local
 
@@ -77,7 +77,7 @@ Node 22 ou plus, aucune dépendance à installer.
 
 ## Parcourir les extensions
 
-Écran `#/extensions` (accueil, recherche) : toutes les extensions du catalogue, rangées par grande série (Méga-Évolution, Écarlate et Violet, Épée et Bouclier, Soleil et Lune, XY, Noir & Blanc, HeartGold SoulSilver), des plus récentes aux plus anciennes, filtrables par série, code ou nom. La série vient du code de l'extension (`seriesOf`, `site/lib/metrics.js`), à défaut de sa date de sortie ; pour chacune, la valeur de l'extension complète (un exemplaire de chaque carte cotée) et la progression de la collection. Une extension (`#/extension/SV8a`, aussi depuis la fiche carte ou l'album) montre toutes ses cartes avec leur prix, par numéro ou par prix, filtrées par rareté et possédées ou manquantes.
+Écran `#/extensions` (accueil, recherche) : toutes les extensions du catalogue, rangées par grande série (Méga-Évolution, Écarlate et Violet, Épée et Bouclier, Soleil et Lune, XY, Noir & Blanc, HeartGold SoulSilver), des plus récentes aux plus anciennes, filtrables par série, code ou nom. La série vient du code de l'extension (`seriesOf`, `site/lib/metrics.js`), à défaut de sa date de sortie ; pour chacune, la valeur de l'extension complète (un exemplaire de chaque carte cotée) et la progression de la collection. Une extension (`#/extension/SV8a`, aussi depuis la fiche carte ou l'album) montre toutes ses cartes avec leur prix, par numéro ou par prix, filtrées par rareté et possédées ou manquantes, avec une liste déroulante pour passer à une autre extension. Deux modes : *Parcourir* (toucher ouvre la fiche) et *Ajouter à ma collection* (toucher ajoute un exemplaire, − et + règlent la quantité) ; « Ajouter des cartes » ouvre la dernière extension utilisée dans ce mode. « Toutes les AR » est la même vue appliquée à toutes les extensions. Les noms anglais des extensions viennent du catalogue TCGplayer. Sur ces écrans, le Marché et la Collection, les filtres sont regroupés derrière un bouton « Filtres » qui résume les choix en cours (`site/lib/cardgrid.js`).
 
 ## Application et hors connexion
 

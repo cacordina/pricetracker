@@ -21,7 +21,7 @@ export async function render(root, { catalog, snapshot, store }) {
   root.innerHTML = `
     <h1>Extensions</h1>
     <div class="muted">${all.length} extensions japonaises, ${catalog.cards.length.toLocaleString('fr-FR')} cartes</div>
-    <input type="search" id="q" placeholder="Code ou nom — ex. « sv8a », « テラスタル »" value="${esc(lastFilter)}" autocomplete="off" aria-label="Filtrer les extensions" style="margin-top:12px">
+    <input type="search" id="q" placeholder="Code ou nom — ex. « sv8a », « black bolt »" value="${esc(lastFilter)}" autocomplete="off" aria-label="Filtrer les extensions" style="margin-top:12px">
     <div id="chips"></div>
     <div id="list"></div>`;
   const input = root.querySelector('#q');
@@ -31,7 +31,7 @@ export async function render(root, { catalog, snapshot, store }) {
     const words = norm(input.value).split(/\s+/).filter(Boolean);
     // Un filtre texte cherche dans toutes les séries.
     const shown = all.filter((e) =>
-      words.every((w) => norm(`${e.set} ${e.name} ${e.series.name}`).includes(w))
+      words.every((w) => norm(`${e.set} ${e.name} ${catalog.sets[e.set]?.en ?? ''} ${e.series.name}`).includes(w))
       && (prefs.show === 'all' || e.owned > 0)
       && (words.length || prefs.series === 'all' || e.series.id === prefs.series));
     root.querySelector('#chips').innerHTML = chips('series', SERIES_CHIPS, words.length ? 'all' : prefs.series)
@@ -58,7 +58,8 @@ export async function render(root, { catalog, snapshot, store }) {
       : `<div class="muted">${e.total} cartes</div>`;
     return `<a class="row" href="#/extension/${encodeURIComponent(e.set)}">
       ${e.top ? cardImg(e.top, catalog.sets) : '<div class="noimg"></div>'}
-      <div class="name"><b>${esc(e.set)}</b> <span class="muted">${esc(date)}</span><div class="muted">${esc(e.name)}</div></div>
+      <div class="name"><b>${esc(e.set)}</b> <span class="muted">${esc(date)}</span>
+        ${catalog.sets[e.set]?.en ? `<div>${esc(catalog.sets[e.set].en)}</div>` : ''}<div class="muted">${esc(e.name)}</div></div>
       <div class="price">${formatEuro(e.valueCents || null)}${progress}</div></a>`;
   }
 

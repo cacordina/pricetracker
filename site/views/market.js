@@ -3,6 +3,7 @@ import { marketList, cheaperInEurope, formatEuro } from '../lib/metrics.js';
 import { loadUsSnapshot } from '../lib/data.js';
 import { cardRow, chips, onChip, loadPrefs, savePrefs, esc } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
+import { filterPanel, trackPanel } from '../lib/cardgrid.js';
 
 const DEFAULTS = { rarities: ['AR', 'SAR'], tab: 'up', window: 7, minEuros: 10, dealPct: 15, usPct: 20 };
 const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'promo', label: 'Promos' }, { value: 'all', label: 'Tout' }];
@@ -16,6 +17,8 @@ export async function render(root, { catalog, snapshot }) {
   const prefs = loadPrefs('market', DEFAULTS);
   const us = await loadUsSnapshot();
   if (prefs.tab === 'us' && !us?.rate) prefs.tab = 'up'; // prix TCGplayer pas encore publiés
+  const panel = { open: false };
+  trackPanel(root, panel);
 
   function draw() {
     const all = prefs.rarities === null;
@@ -36,14 +39,16 @@ export async function render(root, { catalog, snapshot }) {
     root.innerHTML = `
       <h1>Marché japonais</h1>
       <div class="muted">Prix Cardmarket du ${esc(frDate(snapshot.date))}${prefs.tab === 'us' ? ` · TCGplayer du ${esc(frDate(us.date))}` : ''}</div>
-      ${chips('rarity', RARITY_CHIPS, all ? 'all' : prefs.rarities)}
       ${chips('tab', us?.rate ? TAB_CHIPS : TAB_CHIPS.filter((c) => c.value !== 'us'), prefs.tab)}
-      ${prefs.tab === 'us'
-        ? `<div class="muted">Prix TCGplayer (converti en euros) au-dessus du prix Cardmarket d’au moins :</div>${chips('us', US_CHIPS, String(prefs.usPct))}`
-        : prefs.tab === 'deals'
-        ? `<div class="muted">Prix du jour sous la moyenne 30 jours d’au moins :</div>${chips('deal', DEAL_CHIPS, String(prefs.dealPct))}`
-        : chips('window', WINDOW_CHIPS, String(prefs.window))}
-      ${chips('min', MIN_CHIPS, String(prefs.minEuros))}
+      ${filterPanel([
+        prefs.tab === 'us'
+          ? { key: 'us', label: 'TCGplayer (en euros) plus cher que Cardmarket d’au moins', options: US_CHIPS, value: String(prefs.usPct) }
+          : prefs.tab === 'deals'
+          ? { key: 'deal', label: 'Moyenne 7 j sous la moyenne 30 j d’au moins', options: DEAL_CHIPS, value: String(prefs.dealPct) }
+          : { key: 'window', label: 'Période', options: WINDOW_CHIPS, value: String(prefs.window) },
+        { key: 'rarity', label: 'Rareté', options: RARITY_CHIPS, value: all ? 'all' : prefs.rarities },
+        { key: 'min', label: 'Prix minimum', options: MIN_CHIPS, value: String(prefs.minEuros) },
+      ], { open: panel.open })}
       ${approx ? `<div class="banner">Les variations sur ${prefs.window} jours apparaîtront après ${prefs.window} jours de relevés de la moyenne des ventes 7 j (prix suivi par le site depuis le changement). En attendant, voyez les bonnes affaires.</div>` : ''}
       ${list.length
         ? list.map(({ card, trend, change, usEur }) => cardRow(card, catalog.sets, { trend, change, ...(usEur !== undefined ? { sub: `TCGplayer ≈ ${formatEuro(usEur)}` } : {}) })).join('')

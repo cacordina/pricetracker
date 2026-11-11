@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '43 3 * * 1'
   workflow_dispatch:
+    inputs:
+      enrich_only:
+        description: "Rapide : ne pas réinterroger TCGdex (raretés, noms, images recalculés sur le catalogue existant)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -26,7 +31,7 @@ jobs:
         with:
           node-version: 24
       - name: Reconstruire le catalogue depuis TCGdex
-        run: node scripts/build-catalog.mjs --out data
+        run: node scripts/build-catalog.mjs --out data ${{ inputs.enrich_only && '--enrich-only' || '' }}
       - name: Enregistrer le catalogue
         working-directory: data
         run: |

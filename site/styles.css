@@ -231,3 +231,20 @@ p .link, .muted .link { text-decoration: underline; text-underline-offset: 3px; 
 /* uPlot */
 .uplot, .uplot * { font-family: var(--num); }
 .u-legend { display: none; }
+
+/* Filtres regroupés (écrans de cartes) : une ligne qui résume les choix, dépliée à la demande. */
+details.filters { margin-top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 13px; }
+details.filters > summary {
+  list-style: none; cursor: pointer; padding: 10px 14px; font-weight: 700; font-size: 14px;
+  display: flex; gap: 8px; align-items: baseline; min-height: 44px; align-items: center;
+}
+details.filters > summary::-webkit-details-marker { display: none; }
+details.filters > summary .muted { font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+details.filters > summary::after { content: '▾'; color: var(--muted); margin-left: auto; transition: transform .15s; }
+details.filters[open] > summary::after { transform: rotate(180deg); }
+details.filters .ico { color: var(--gold); }
+details.filters .frow { padding: 2px 14px 10px; }
+details.filters .flabel { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+details.filters .frow .chips { margin-top: 2px; }
+.modes { margin-top: 10px; }
+select.setpick { width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); font: 600 15px var(--font); }
