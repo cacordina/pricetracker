@@ -23,7 +23,12 @@ export function wireStale(root, rows, aliases, kind, store, refresh) {
       for (const { from, to } of staleIds(rows, aliases)) {
         const row = byId.get(from);
         if (kind === 'holdings') {
-          await store.setHolding(to, (byId.get(to)?.qty ?? 0) + row.qty); // la nouvelle ligne d'abord : rien n'est perdu en cas d'arrêt
+          const target = byId.get(to);
+          await store.setHolding(to, (target?.qty ?? 0) + row.qty); // la nouvelle ligne d'abord : rien n'est perdu en cas d'arrêt
+          const hasPurchase = (r) => r && (r.paid_cents !== null && r.paid_cents !== undefined || r.bought_on);
+          if (hasPurchase(row) && !hasPurchase(target)) {
+            await store.setPurchase(to, { paidCents: row.paid_cents ?? null, boughtOn: row.bought_on ?? null });
+          }
           await store.setHolding(from, 0);
         } else {
           if (!byId.has(to)) await store.setWish(to, row.target_cents);

@@ -1,6 +1,6 @@
 // Fiche d'une carte : image, prix, courbe, liens Cardmarket et eBay, collection et envies.
 import { loadHistory } from '../lib/data.js';
-import { COL, displayName, formatEuro, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
+import { COL, displayName, formatEuro, formatPct, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
 import { cardImg, chips, onChip, pctSpan, rarityTag, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { CARDMARKET_FILTERS } from '../config.js';
@@ -67,7 +67,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
     drawChart();
   });
 
-  renderMine(root.querySelector('#mine'), id, store);
+  renderMine(root.querySelector('#mine'), id, store, priced ? row[COL.trend] : null);
 }
 
 export function mounted(root) {
@@ -75,21 +75,44 @@ export function mounted(root) {
 }
 
 /** Bloc « ma collection / mes envies » ; il ne bloque jamais l'affichage de la fiche. */
-async function renderMine(box, id, store) {
+async function renderMine(box, id, store, trend) {
   if (!store.isConfigured()) return;
   if (!(await store.getSession())) {
     box.innerHTML = '<a class="btn sec" href="#/connexion">Se connecter pour l’ajouter à ma collection ou à mes envies</a>';
     return;
   }
   let qty = 0;
+  let paid = null;   // prix d'achat par exemplaire, en centimes
+  let bought = null; // date d'achat "AAAA-MM-JJ"
   let wish = null;
   try {
     const [holdings, wishes] = await Promise.all([store.listHoldings(), store.listWishes()]);
-    qty = holdings.find((h) => h.id_product === id)?.qty ?? 0;
+    const holding = holdings.find((h) => h.id_product === id);
+    qty = holding?.qty ?? 0;
+    paid = holding?.paid_cents ?? null;
+    bought = holding?.bought_on ?? null;
     wish = wishes.find((w) => w.id_product === id) ?? null;
   } catch (err) {
     box.innerHTML = `<p class="error">${esc(err.message)}</p>`;
     return;
+  }
+
+  function purchaseBlock() {
+    const gain = paid !== null && trend !== null ? (trend - paid) * qty : null;
+    return `
+      <div class="line" style="margin-top:10px">
+        <span class="muted">Prix d’achat</span>
+        <span class="muted"><input class="small" type="number" id="paid" inputmode="decimal" min="0" step="0.01" placeholder="—" value="${paid !== null ? (paid / 100).toFixed(2) : ''}" aria-label="Prix d’achat par exemplaire en euros"> €</span>
+      </div>
+      <div class="line" style="margin-top:8px">
+        <span class="muted">Date d’achat</span>
+        <input class="small date" type="date" id="bought" max="${new Date().toISOString().slice(0, 10)}" value="${esc(bought ?? '')}" aria-label="Date d’achat">
+      </div>
+      <div class="line" style="margin-top:8px">
+        <button type="button" class="link" data-act="purchase">Enregistrer l’achat</button>
+        ${gain !== null ? `<span class="${gain >= 0 ? 'up' : 'down'}">${gain >= 0 ? '+' : ''}${formatEuro(gain)}${paid ? ` (${formatPct(((trend - paid) / paid) * 100)})` : ''}</span>` : ''}
+      </div>
+      ${qty > 1 ? '<div class="muted" style="margin-top:4px">Prix par exemplaire ; s’ils n’ont pas coûté pareil, indiquez la moyenne.</div>' : ''}`;
   }
 
   function draw(message = '') {
@@ -98,7 +121,8 @@ async function renderMine(box, id, store) {
         <span>${qty ? '✓ Dans ma collection' : 'Dans ma collection'}</span>
         <span class="stepper"><button type="button" data-act="minus" aria-label="Retirer un exemplaire" ${qty ? '' : 'disabled'}>−</button>
           <b>${qty}</b><button type="button" data-act="plus" aria-label="Ajouter un exemplaire">+</button></span>
-      </div></div>
+      </div>
+      ${qty ? purchaseBlock() : ''}</div>
       <div class="box"><div class="line">
         <span>${wish ? '★ Dans mes envies' : 'Mes envies'}</span>
         <span class="muted">prix cible <input class="small" type="number" id="target" inputmode="decimal" min="0" step="0.01" placeholder="—" value="${wish?.target_cents ? (wish.target_cents / 100).toFixed(2) : ''}" aria-label="Prix cible en euros"> €</span>
@@ -118,6 +142,17 @@ async function renderMine(box, id, store) {
         const next = Math.max(0, qty + (act === 'plus' ? 1 : -1));
         await store.setHolding(id, next);
         qty = next;
+        if (!next) { paid = null; bought = null; } // la ligne est supprimée avec ses infos d’achat
+      } else if (act === 'purchase') {
+        const raw = box.querySelector('#paid').value.trim().replace(',', '.');
+        const euros = raw === '' ? null : Number(raw);
+        if (euros !== null && !(euros >= 0)) return draw('Le prix d’achat doit être un montant positif.');
+        const date = box.querySelector('#bought').value || null;
+        if (date && date > new Date().toISOString().slice(0, 10)) return draw('La date d’achat ne peut pas être dans le futur.');
+        const cents = euros === null ? null : Math.round(euros * 100);
+        await store.setPurchase(id, { paidCents: cents, boughtOn: date });
+        paid = cents;
+        bought = date;
       } else if (act === 'wish') {
         const raw = box.querySelector('#target').value.trim().replace(',', '.');
         const euros = raw === '' ? null : Number(raw);

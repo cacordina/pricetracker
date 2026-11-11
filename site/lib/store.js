@@ -95,10 +95,18 @@ export function onAuthChange(callback) {
   });
 }
 
-/** @returns {Promise<Array<{ id_product: number, qty: number }>>} */
+/** @returns {Promise<Array<{ id_product: number, qty: number, paid_cents: number | null, bought_on: string | null }>>} */
 export async function listHoldings() {
   await requireSession();
-  return run((db) => db.from('holdings').select('id_product, qty').order('id_product'));
+  return run((db) => db.from('holdings').select('id_product, qty, paid_cents, bought_on').order('id_product'));
+}
+
+/** Prix d'achat par exemplaire (centimes) et date d'achat ("AAAA-MM-JJ") d'une carte possédée ; null efface. */
+export async function setPurchase(idProduct, { paidCents = null, boughtOn = null }) {
+  await requireSession();
+  await run((db) => db.from('holdings')
+    .update({ paid_cents: paidCents, bought_on: boughtOn, updated_at: new Date().toISOString() })
+    .eq('id_product', idProduct));
 }
 
 /** Fixe la quantité possédée ; 0 retire la carte. */

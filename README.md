@@ -70,6 +70,7 @@ Node 22 ou plus, aucune dépendance à installer.
 - `site/config.js` : adresse des données, adresse et clé publique du projet Supabase.
 - Variables du dépôt GitHub `SUPABASE_URL` et `SUPABASE_KEY` (facultatives) : la tâche quotidienne s'en sert pour garder le projet Supabase gratuit actif.
 - `supabase/migrations/0001_init.sql` : tables `holdings` et `wishes` et leurs règles d'accès.
+- `supabase/migrations/0002_purchase.sql` : prix (`paid_cents`, par exemplaire) et date d'achat (`bought_on`) des cartes possédées, saisis sur la fiche carte ; la collection en tire la somme payée et la plus-value.
 
 ## Scanner de cartes (expérimental)
 
@@ -80,5 +81,6 @@ Node 22 ou plus, aucune dépendance à installer.
 - eBay : la fiche carte ouvre la recherche des ventes conclues sur ebay.fr (nom anglais, numéro, « japanese »). Les prix ne sont pas importés : eBay ne donne accès à l'historique des ventes qu'à des partenaires agréés (API Marketplace Insights), et la lecture automatique de ses pages est interdite par ses conditions.
 - Les prix sont globaux par carte : ni l'état, ni la langue du vendeur. Le « plus bas » peut être un exemplaire abîmé.
 - L'historique commence à la mise en service.
-- La valeur passée de la collection applique les cartes possédées aujourd'hui aux prix d'hier ; les dates d'achat ne sont pas suivies.
+- La courbe de la collection ne fait entrer une carte qu'à sa date d'achat quand elle est renseignée ; sans date, la carte compte depuis le début de l'historique. La variation affichée au-dessus ne mesure que l'évolution des prix des cartes possédées aujourd'hui, pas les achats.
+- Le prix d'achat est un prix par exemplaire : pour plusieurs exemplaires payés différemment, on saisit la moyenne.
 - Les alertes de prix cible sont visibles dans le site (pastille sur l'onglet Envies), sans notification.

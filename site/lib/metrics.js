@@ -116,10 +116,12 @@ export function collectionValue(holdings, snapshot) {
 }
 
 /**
- * Valeur de la collection actuelle appliquée aux prix passés.
+ * Valeur de la collection jour par jour.
  * Une carte sans prix à une date reprend son dernier prix connu ; elle ne compte pas avant son premier prix.
+ * Avec `fromPurchase`, une carte dont la date d'achat est connue ne compte qu'à partir de cette date ;
+ * sans, c'est la collection actuelle appliquée aux prix passés (l'évolution des seuls prix).
  */
-export function collectionSeries(holdings, histories) {
+export function collectionSeries(holdings, histories, { fromPurchase = false } = {}) {
   if (!holdings.length) return { dates: [], values: [] };
   const all = Object.values(histories);
   const dates = [...new Set(all.flatMap((h) => h.dates))].sort();
@@ -134,10 +136,47 @@ export function collectionSeries(holdings, histories) {
       const at = indexOf.get(date);
       const price = at === undefined ? null : series[at];
       if (price !== null && price !== undefined) lastKnown = price;
+      if (fromPurchase && holding.bought_on && date < holding.bought_on) return;
       if (lastKnown !== null) values[i] = (values[i] ?? 0) + lastKnown * holding.qty;
     });
   }
   return { dates, values };
+}
+
+/**
+ * Somme payée jour par jour pour les cartes dont le prix d'achat est connu, à partir de leur date d'achat
+ * (ou du début de la courbe si elle n'est pas renseignée). null tant que rien n'est payé, ou si aucun prix n'est saisi.
+ */
+export function paidSeries(dates, holdings) {
+  const paid = holdings.filter((h) => h.paid_cents !== null && h.paid_cents !== undefined);
+  if (!paid.length) return null;
+  return dates.map((date) => {
+    let total = null;
+    for (const h of paid) if (!h.bought_on || date >= h.bought_on) total = (total ?? 0) + h.paid_cents * h.qty;
+    return total;
+  });
+}
+
+/**
+ * Plus-value des cartes dont on connaît à la fois le prix d'achat (par exemplaire) et le prix du jour.
+ * `missing` : exemplaires sans prix d'achat ; `unpriced` : exemplaires payés mais sans prix du jour.
+ */
+export function collectionGain(holdings, snapshot) {
+  let paidCents = 0;
+  let valueCents = 0;
+  let count = 0;
+  let missing = 0;
+  let unpriced = 0;
+  for (const h of holdings) {
+    if (h.paid_cents === null || h.paid_cents === undefined) { missing += h.qty; continue; }
+    const trend = snapshot.cards[h.id_product]?.[COL.trend];
+    if (trend === null || trend === undefined) { unpriced += h.qty; continue; }
+    paidCents += h.paid_cents * h.qty;
+    valueCents += trend * h.qty;
+    count += h.qty;
+  }
+  const gainCents = valueCents - paidCents;
+  return { paidCents, valueCents, gainCents, pct: count && paidCents ? round1((gainCents / paidCents) * 100) : null, count, missing, unpriced };
 }
 
 const MIN_POINTS_LOW30 = 14;

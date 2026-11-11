@@ -1,11 +1,17 @@
 // Écran Collection : valeur totale, courbe et mosaïque des cartes possédées.
 import { loadHistories } from '../lib/data.js';
-import { COL, completion, collectionValue, collectionSeries, formatEuro, formatPct, rangeChange, sliceRange } from '../lib/metrics.js';
+import { COL, completion, collectionValue, collectionSeries, collectionGain, paidSeries, formatEuro, formatPct, rangeChange, sliceRange } from '../lib/metrics.js';
 import { cardImg, chips, onChip, esc, RANGES, loadPrefs, savePrefs, storeProblem } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { staleBanner, wireStale } from '../lib/migrate.js';
 
-const SORTS = [{ value: 'value', label: 'Par valeur' }, { value: 'change', label: 'Par variation' }];
+const SORTS = [{ value: 'value', label: 'Par valeur' }, { value: 'change', label: 'Par variation' }, { value: 'gain', label: 'Par plus-value' }];
+
+/** Plus-value d'une possession (centimes), ou null si le prix d'achat ou le prix du jour manque. */
+const gainOf = (item) => {
+  const trend = item.row?.[COL.trend] ?? null;
+  return trend === null || item.paid_cents === null || item.paid_cents === undefined ? null : (trend - item.paid_cents) * item.qty;
+};
 
 export async function render(root, { catalog, snapshot, store, refresh }) {
   let holdings;
@@ -36,12 +42,22 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
   function draw() {
     const shown = visible();
     const value = collectionValue(shown, snapshot);
-    const series = collectionSeries(shown.filter((i) => i.card), histories);
-    const from = sliceRange(series.dates, prefs.range);
-    const change = rangeChange(series.values.slice(from));
-    const sorted = [...shown].sort((a, b) => (prefs.sort === 'change'
-      ? (b.row?.[COL.d7] ?? -Infinity) - (a.row?.[COL.d7] ?? -Infinity)
-      : (b.row?.[COL.trend] ?? -1) * b.qty - (a.row?.[COL.trend] ?? -1) * a.qty));
+    const gain = collectionGain(shown, snapshot);
+    const known = shown.filter((i) => i.card);
+    // La courbe suit les achats (une carte compte à partir de sa date d'achat) ;
+    // la variation affichée ne regarde que l'évolution des prix des cartes possédées.
+    const series = collectionSeries(known, histories, { fromPurchase: true });
+    const prices = collectionSeries(known, histories);
+    const paid = paidSeries(series.dates, known);
+    const from = sliceRange(prices.dates, prefs.range);
+    const change = rangeChange(prices.values.slice(from));
+    const SORT_KEY = {
+      value: (i) => (i.row?.[COL.trend] ?? -1) * i.qty,
+      change: (i) => i.row?.[COL.d7] ?? -Infinity,
+      gain: (i) => gainOf(i) ?? -Infinity,
+    };
+    const key = SORT_KEY[prefs.sort] ?? SORT_KEY.value;
+    const sorted = [...shown].sort((a, b) => key(b) - key(a));
     const done = completion(holdings, catalog, prefs.done);
     const doneSets = done.sets.filter((e) => prefs.doneAll || e.owned > 0);
     const rangeLabel = RANGES.find((r) => r.value === prefs.range).label.toLowerCase();
@@ -51,12 +67,14 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
       ${staleBanner(holdings, catalog.aliases, 'votre collection')}
       <div class="big">${formatEuro(value.totalCents)}</div>
       <div>${change
-        ? `<span class="${change.deltaCents >= 0 ? 'up' : 'down'}">${change.deltaCents >= 0 ? '▲ +' : '▼ '}${formatEuro(change.deltaCents)} (${formatPct(change.pct)})</span> <span class="muted">sur ${rangeLabel === 'tout' ? 'tout l’historique' : rangeLabel}</span>`
+        ? `<span class="${change.deltaCents >= 0 ? 'up' : 'down'}">${change.deltaCents >= 0 ? '▲ +' : '▼ '}${formatEuro(change.deltaCents)} (${formatPct(change.pct)})</span> <span class="muted">prix de vos cartes sur ${rangeLabel === 'tout' ? 'tout l’historique' : rangeLabel}</span>`
         : '<span class="muted">Variation disponible dès le deuxième relevé de prix.</span>'}</div>
       <div class="muted">${value.count} carte${value.count > 1 ? 's' : ''}${value.unpriced ? ` · ${value.unpriced} sans prix, non comptée${value.unpriced > 1 ? 's' : ''}` : ''}</div>
+      ${gainLine(gain)}
       <div class="muted">Complétion ${esc(prefs.done.join(' + '))} : <b>${done.owned}/${done.total}</b> (${done.pct} %) · <a href="#" id="to-done" style="text-decoration:underline">détail</a> · <a href="#/album" id="to-album" style="text-decoration:underline">voir toutes les ${esc(prefs.done.join(' + '))}</a></div>
       <div class="chart" id="chart"></div>
       <div class="muted readout" style="min-height:1.4em"></div>
+      ${paid ? '<div class="legend"><span><i></i>valeur</span><span><i class="dash"></i>payé</span></div>' : ''}
       ${chips('range', RANGES, prefs.range)}
       <div class="chips" data-group="filter">
         ${[['all', 'Toutes'], ['AR', 'AR'], ['SAR', 'SAR']].map(([v, l]) => `<button type="button" class="chip${prefs.filter === v ? ' on' : ''}" data-value="${v}">${l}</button>`).join('')}
@@ -80,7 +98,10 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
       <p class="muted">Cartes distinctes possédées parmi celles classées ${esc(prefs.done.join(' ou '))} ; les doublons ne comptent qu’une fois. Touchez une extension pour voir toutes ses cartes, possédées ou non.</p>
       <p style="text-align:center;margin-top:22px"><button type="button" class="link" id="signout">Se déconnecter</button></p>`;
 
-    renderPriceChart(root.querySelector('#chart'), { dates: series.dates, series: [{ label: 'Valeur', values: series.values }] }, prefs.range);
+    renderPriceChart(root.querySelector('#chart'), {
+      dates: series.dates,
+      series: [{ label: 'Valeur', values: series.values }, ...(paid ? [{ label: 'Payé', values: paid, dash: true }] : [])],
+    }, prefs.range);
     root.querySelector('#set').onchange = (e) => { prefs.set = e.target.value; savePrefs('collection', prefs); draw(); };
     root.querySelector('#signout').onclick = () => store.signOut();
     root.querySelector('#to-done').onclick = (e) => { e.preventDefault(); root.querySelector('#done').scrollIntoView({ behavior: 'smooth' }); };
@@ -92,6 +113,18 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     wireStale(root, holdings, catalog.aliases, 'holdings', store, refresh);
   }
 
+  function gainLine(g) {
+    if (!g.count) {
+      return g.missing ? '<div class="muted">Indiquez vos prix d’achat sur les fiches des cartes pour suivre votre plus-value.</div>' : '';
+    }
+    const others = [
+      g.missing ? `${g.missing} sans prix d’achat` : '',
+      g.unpriced ? `${g.unpriced} sans prix du jour` : '',
+    ].filter(Boolean).join(', ');
+    return `<div>Payé ${formatEuro(g.paidCents)} · <span class="${g.gainCents >= 0 ? 'up' : 'down'}">plus-value ${g.gainCents >= 0 ? '+' : ''}${formatEuro(g.gainCents)}${g.pct !== null ? ` (${formatPct(g.pct)})` : ''}</span></div>
+      ${others ? `<div class="muted">Sur ${g.count} carte${g.count > 1 ? 's' : ''} ; non comptées : ${others}.</div>` : ''}`;
+  }
+
   function tile(item) {
     const trend = item.row?.[COL.trend] ?? null;
     const d7 = item.row?.[COL.d7] ?? null;
@@ -101,7 +134,8 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
       : `<div class="noimg">Carte inconnue<br>(n° ${item.id_product})</div>`;
     return `<a class="tile" href="#/carte/${item.id_product}">
       ${image}${item.qty > 1 ? `<span class="qty">×${item.qty}</span>` : ''}
-      ${trend === null ? '<span class="muted">pas de prix</span>' : formatEuro(trend)}${arrow}</a>`;
+      ${trend === null ? '<span class="muted">pas de prix</span>' : formatEuro(trend)}${arrow}
+      ${prefs.sort === 'gain' && gainOf(item) !== null ? `<span class="${gainOf(item) >= 0 ? 'up' : 'down'}" style="display:block;font-size:12px">${gainOf(item) >= 0 ? '+' : ''}${formatEuro(gainOf(item))}</span>` : ''}</a>`;
   }
 
   onChip(root, (group, value) => {

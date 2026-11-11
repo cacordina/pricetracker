@@ -109,6 +109,36 @@ test('collection : courbe de valeur sur plusieurs extensions, dernier prix connu
   assert.deepEqual(m.collectionSeries([{ id_product: 999999, qty: 1 }], histories).values, [null, null, null]);
 });
 
+test('collection : avec les dates d’achat, une carte compte à partir de son achat', () => {
+  const histories = { SV8a: { dates: ['2026-11-08', '2026-11-09', '2026-11-10'], cards: { 803325: { t: [100, 110, 120] }, 803303: { t: [10, 10, 12] } } } };
+  const holdings = [{ id_product: 803325, qty: 2, bought_on: '2026-11-09' }, { id_product: 803303, qty: 1, bought_on: null }];
+  assert.deepEqual(m.collectionSeries(holdings, histories, { fromPurchase: true }).values, [10, 230, 252]);
+  assert.deepEqual(m.collectionSeries(holdings, histories).values, [210, 230, 252]); // sans l'option : prix seuls
+});
+test('collection : somme payée jour par jour', () => {
+  const dates = ['2026-11-08', '2026-11-09', '2026-11-10'];
+  const holdings = [
+    { id_product: 1, qty: 2, paid_cents: 500, bought_on: '2026-11-09' },
+    { id_product: 2, qty: 1, paid_cents: 300, bought_on: null },
+    { id_product: 3, qty: 1, paid_cents: null, bought_on: '2026-11-08' },
+  ];
+  assert.deepEqual(m.paidSeries(dates, holdings), [300, 1300, 1300]);
+  assert.deepEqual(m.paidSeries(dates, [{ id_product: 1, qty: 1, paid_cents: 100, bought_on: '2026-11-10' }]), [null, null, 100]);
+  assert.equal(m.paidSeries(dates, [{ id_product: 1, qty: 1, paid_cents: null }]), null);
+});
+test('collection : plus-value sur les cartes dont le prix d’achat et le prix du jour sont connus', () => {
+  const holdings = [
+    { id_product: 803325, qty: 2, paid_cents: 8000 }, // prix du jour 10324
+    { id_product: 803303, qty: 1, paid_cents: null },
+    { id_product: 999999, qty: 1, paid_cents: 500 },  // pas de prix du jour
+  ];
+  assert.deepEqual(m.collectionGain(holdings, snapshot), {
+    paidCents: 16000, valueCents: 20648, gainCents: 4648, pct: 29.1, count: 2, missing: 1, unpriced: 1,
+  });
+  assert.deepEqual(m.collectionGain([{ id_product: 803325, qty: 1, paid_cents: 0 }], snapshot).pct, null); // carte reçue gratuitement
+  assert.deepEqual(m.collectionGain([], snapshot), { paidCents: 0, valueCents: 0, gainCents: 0, pct: null, count: 0, missing: 0, unpriced: 0 });
+});
+
 test('envies : statut', () => {
   const row = snapshot.cards[803325];
   assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 11000 }, row, null), { underTarget: true, gapCents: -676, low30: false, rising: true });
