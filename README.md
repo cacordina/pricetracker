@@ -102,7 +102,8 @@ Le site s'installe comme une application : sur iPhone, Safari → Partager → *
 
 ## Limites connues
 
-- eBay : la fiche carte ouvre la recherche des ventes conclues sur ebay.fr (nom anglais, numéro, « japanese »). Les prix ne sont pas importés : eBay ne donne accès à l'historique des ventes qu'à des partenaires agréés (API Marketplace Insights), et la lecture automatique de ses pages est interdite par ses conditions.
+- eBay et Vinted : la fiche carte ouvre la recherche des ventes conclues sur ebay.fr (nom anglais, numéro, « japanese ») et des annonces en cours sur vinted.fr (nom français, numéro). Vinted n'a ni API publique ni historique des ventes.
+- eBay : les prix ne sont pas importés : eBay ne donne accès à l'historique des ventes qu'à des partenaires agréés (API Marketplace Insights), et la lecture automatique de ses pages est interdite par ses conditions.
 - Les prix sont globaux par carte, sans distinction de langue du vendeur. Le « plus bas » est l'annonce la moins chère, tous états confondus : il peut s'agir d'un exemplaire abîmé.
 - L'historique commence à la mise en service.
 - La courbe de la collection ne fait entrer une carte qu'à sa date d'achat quand elle est renseignée ; sans date, la carte compte depuis le début de l'historique. La variation affichée au-dessus ne mesure que l'évolution des prix des cartes possédées aujourd'hui, pas les achats.

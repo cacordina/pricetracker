@@ -1,6 +1,6 @@
 // Fiche d'une carte : image, prix, courbe, liens Cardmarket et eBay, collection et envies.
 import { loadHistory, loadUsSnapshot, loadUsHistory } from '../lib/data.js';
-import { COL, priceOf, priceSource, displayName, formatEuro, formatPct, formatUsd, usdToEur, usGap, alignTo, cardmarketUrl, ebaySoldUrl, RARITY_LABEL } from '../lib/metrics.js';
+import { COL, priceOf, priceSource, displayName, formatEuro, formatPct, formatUsd, usdToEur, usGap, alignTo, cardmarketUrl, ebaySoldUrl, vintedUrl, RARITY_LABEL } from '../lib/metrics.js';
 import { cardImg, chips, onChip, pctSpan, rarityTag, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
 import { renderPriceChart, frDate } from '../lib/chart.js';
 import { CARDMARKET_FILTERS } from '../config.js';
@@ -58,6 +58,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
           </div>` : '<p class="muted" style="margin-top:10px">Pas de prix publié par Cardmarket pour cette carte.</p>'}
       </div>
     </div>
+    <div id="mine"></div>
     ${usBlock()}
     <div class="chart" id="chart"></div>
     <div class="muted readout" style="min-height:1.4em"></div>
@@ -66,9 +67,10 @@ export async function render(root, { catalog, snapshot, store, param }) {
     <div class="muted">Prix suivi : moyenne des ventes Cardmarket sur 7 jours (états Excellent ou mieux). Le plus bas en vente peut être un exemplaire abîmé ; la tendance Cardmarket est donnée pour information.</div>
     <a class="btn" href="${esc(cardmarketUrl(id, CARDMARKET_FILTERS))}" target="_blank" rel="noopener">Voir sur Cardmarket ↗</a>
     <div class="muted" style="text-align:center;margin-top:4px">Offres filtrées : cartes japonaises, vendeurs en France</div>
-    <a class="btn sec" href="${esc(ebaySoldUrl(card, catalog.sets))}" target="_blank" rel="noopener">Dernières ventes sur eBay ↗</a>
-    <div class="muted" style="text-align:center;margin-top:4px">Annonces vendues, les plus récentes d’abord</div>
-    <div id="mine"></div>`;
+    <div class="btn-row">
+      <a class="btn sec" href="${esc(ebaySoldUrl(card, catalog.sets))}" target="_blank" rel="noopener">eBay ↗<small>ventes conclues</small></a>
+      <a class="btn sec" href="${esc(vintedUrl(card, catalog.sets))}" target="_blank" rel="noopener">Vinted ↗<small>annonces en cours</small></a>
+    </div>`;
 
   const chartEl = root.querySelector('#chart');
   const drawChart = () => renderPriceChart(chartEl, {

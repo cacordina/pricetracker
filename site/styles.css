@@ -253,3 +253,16 @@ select.setpick { width: 100%; margin-top: 10px; padding: 10px 12px; border-radiu
 .row img.setimg, .row .noimg.setimg { width: 56px; aspect-ratio: 1; object-fit: contain; background: var(--panel-2); border-radius: 8px; }
 .set-head { display: flex; gap: 14px; align-items: center; margin-top: 4px; }
 .set-head .setimg { width: 96px; height: 96px; flex: none; object-fit: contain; border-radius: 10px; background: var(--panel-2); }
+
+/* Deux boutons côte à côte (liens eBay / Vinted de la fiche carte), avec une précision en petit. */
+.btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn-row .btn small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+/* Bouton retour (en-tête) : sur les pages qui ne sont pas un onglet ; la marque se réduit alors à son logo. */
+.top .back {
+  display: flex; align-items: center; gap: 2px; min-height: 42px; padding: 0 10px 0 2px; margin-left: -6px;
+  background: none; border: 0; color: var(--gold); font: 700 15px var(--font); cursor: pointer;
+}
+.top .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.top .back[hidden] { display: none; }
+.top.sub .brand .label { display: none; }

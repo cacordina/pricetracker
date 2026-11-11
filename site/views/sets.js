@@ -21,6 +21,7 @@ export async function render(root, { catalog, snapshot, store }) {
   root.innerHTML = `
     <h1>Extensions</h1>
     <div class="muted">${all.length} extensions japonaises, ${catalog.cards.length.toLocaleString('fr-FR')} cartes</div>
+    <a class="link" href="#/album" style="display:inline-block;margin-top:6px">Toutes les AR et SAR, toutes extensions ›</a>
     <input type="search" id="q" placeholder="Code ou nom — ex. « sv8a », « black bolt »" value="${esc(lastFilter)}" autocomplete="off" aria-label="Filtrer les extensions" style="margin-top:12px">
     <div id="chips"></div>
     <div id="list"></div>`;

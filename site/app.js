@@ -31,9 +31,20 @@ const SCROLLS_KEY = 'carnet:scrolls';
 const scrolls = new Map((() => { try { return Object.entries(JSON.parse(sessionStorage.getItem(SCROLLS_KEY) ?? '{}')); } catch { return []; } })());
 let rendering = false; // pendant un changement d'écran, le défilement ne doit rien écraser
 const entryId = () => history.state?.carnet ?? null;
+// Profondeur de la page dans la navigation de l'app (0 = première page ouverte) : le bouton retour revient
+// en arrière s'il y a une page précédente dans l'app, sinon il mène à la page parente (sans quitter l'app).
+let shownDepth = -1;
 function markEntry() {
-  history.replaceState({ ...(history.state ?? {}), carnet: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}` }, '');
+  history.replaceState({ ...(history.state ?? {}), carnet: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, depth: shownDepth + 1 }, '');
 }
+
+// Pages qui ne sont pas un onglet : bouton retour, et page parente quand il n'y a pas de page précédente.
+const PARENT = { carte: '#/accueil', extension: '#/extensions', extensions: '#/accueil', album: '#/extensions', recherche: '#/accueil', connexion: '#/accueil', ajout: '#/collection' };
+const backButton = document.getElementById('back');
+backButton.onclick = () => {
+  if ((history.state?.depth ?? 0) > 0) history.back();
+  else location.hash = PARENT[backButton.dataset.route] ?? '#/accueil';
+};
 window.addEventListener('scroll', () => {
   const entry = entryId();
   if (!rendering && entry) scrolls.set(entry, Math.round(window.scrollY));
@@ -56,6 +67,10 @@ async function render() {
     link.toggleAttribute('aria-current', link.dataset.tab === tab);
   }
   for (const link of document.querySelectorAll('.top [data-top]')) link.classList.toggle('on', link.dataset.top === name);
+  const sub = name in PARENT;
+  backButton.hidden = !sub;
+  backButton.dataset.route = name;
+  document.querySelector('.top').classList.toggle('sub', sub);
   rendering = true;
   try {
     const [module, catalog, snapshot] = await Promise.all([load(), loadCatalog(), loadSnapshot()]);
@@ -70,6 +85,7 @@ async function render() {
     module.mounted?.(root); // après le retour en haut : un écran peut se placer ailleurs (album)
     if (saved !== undefined) window.scrollTo(0, saved); // retour arrière : l'endroit où l'on était
     if (!entry) markEntry();
+    shownDepth = history.state?.depth ?? 0;
   } catch (err) {
     if (id !== renderId) return;
     console.error(err);

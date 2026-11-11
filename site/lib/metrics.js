@@ -78,6 +78,18 @@ export function ebaySoldUrl(card, sets = {}) {
   return `https://www.ebay.fr/sch/i.html?${params}`;
 }
 
+/**
+ * Recherche Vinted (annonces en cours, les plus récentes d'abord) : nom français s'il existe, sinon anglais, et numéro.
+ * Vinted n'expose ni API publique ni historique des ventes : on ouvre sa page de résultats.
+ */
+export function vintedUrl(card, sets = {}) {
+  const name = card.fr ?? (card.en ? card.en.replace(/\s*\[.*\]\s*$/, '').trim() : '');
+  const official = sets[card.s]?.official;
+  const number = official && /^\d+$/.test(card.n) ? `${card.n}/${official}` : card.n;
+  const params = new URLSearchParams({ search_text: ['pokemon', name, number].filter(Boolean).join(' '), order: 'newest_first' });
+  return `https://www.vinted.fr/catalog?${params}`;
+}
+
 const normalize = (text) => String(text ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const haystacks = new WeakMap();
 

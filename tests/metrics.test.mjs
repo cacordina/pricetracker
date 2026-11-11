@@ -348,3 +348,11 @@ test('grandes séries : d’après le code, sinon d’après la date', () => {
   assert.equal(id('PMCG1', '1996-10-20'), 'old');
   assert.equal(id('ZZZ', null), 'old');
 });
+
+test('vintedUrl : nom français, numéro sur le total officiel, plus récentes d’abord', () => {
+  const url = new URL(m.vintedUrl({ s: 'SV8a', n: '212', fr: 'Nymphali ex', en: 'Sylveon ex [x]' }, { SV8a: { official: 187 } }));
+  assert.equal(url.origin + url.pathname, 'https://www.vinted.fr/catalog');
+  assert.equal(url.searchParams.get('search_text'), 'pokemon Nymphali ex 212/187');
+  assert.equal(url.searchParams.get('order'), 'newest_first');
+  assert.equal(new URL(m.vintedUrl({ s: 'X', n: 'SV-P 001', en: 'Pikachu [y]' })).searchParams.get('search_text'), 'pokemon Pikachu SV-P 001');
+});

@@ -4,12 +4,12 @@ import {
   COL, collectionValue, collectionSeries, rangeChange, sliceRange, marketList, completion,
   wishStatus, sortWishes, topOwned, formatEuro, formatPct, displayName, priceOf,
 } from '../lib/metrics.js';
-import { cardImg, cardRow, pctSpan, esc } from '../lib/ui.js';
+import { cardImg, cardRow, pctSpan, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
 
 const ICON = {
   add: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.500" width="14" height="17" rx="2"/><path d="M12 8.500v7M8.500 12h7"/></svg>',
-  album: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.500" y="4" width="7" height="7" rx="1.200"/><rect x="13.500" y="4" width="7" height="7" rx="1.200"/><rect x="3.500" y="13" width="7" height="7" rx="1.200"/><rect x="13.500" y="13" width="7" height="7" rx="1.200"/></svg>',
+  deals: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.500 12.200V4.500a1 1 0 0 1 1-1h7.700l8.300 8.300a1 1 0 0 1 0 1.400l-7 7a1 1 0 0 1-1.400 0z"/><circle cx="8.500" cy="8.500" r="1.600"/></svg>',
   sets: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 4l8 3.5-8 3.5z"/><path d="m4 12 8 3.500 8-3.500"/><path d="m4 16.500 8 3.500 8-3.500"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.800-3.800"/></svg>',
 };
@@ -30,8 +30,8 @@ export async function render(root, { catalog, snapshot, store }) {
     ${hero()}
     <div class="quick">
       <a href="#/ajout">${ICON.add}Ajouter des cartes</a>
-      <a href="#/album">${ICON.album}Toutes les AR</a>
       <a href="#/extensions">${ICON.sets}Extensions</a>
+      <a href="#/marche" id="to-deals">${ICON.deals}Bonnes affaires</a>
       <a href="#/recherche">${ICON.search}Chercher une carte</a>
     </div>
     ${wishBlock()}
@@ -39,6 +39,9 @@ export async function render(root, { catalog, snapshot, store }) {
     ${strip('Sous leur moyenne 30 jours', deals, 'Aucune bonne affaire aujourd’hui.')}
     ${doneBlock()}
     <p class="muted" style="text-align:center;margin-top:26px">Prix Cardmarket du ${esc(frDate(snapshot.date))}</p>`;
+
+  // « Bonnes affaires » ouvre le Marché directement sur cet onglet.
+  root.querySelector('#to-deals').addEventListener('click', () => savePrefs('market', { ...loadPrefs('market', {}), tab: 'deals' }));
 
   function fan(cards) {
     return cards.length ? `<div class="fan" aria-hidden="true">${cards.map((c) => cardImg(c, catalog.sets)).join('')}</div>` : '';
