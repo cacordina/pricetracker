@@ -128,6 +128,21 @@ async function refreshWishDot() {
   }
 }
 
+/**
+ * Bandeau quand les derniers prix Cardmarket ont plus d'un jour : Cardmarket n'a pas publié (ou pas encore)
+ * de nouveau fichier de prix. Le site garde les derniers prix valides, sans rien inventer.
+ */
+async function refreshStale() {
+  const banner = document.getElementById('stale');
+  const date = await loadSnapshot().then((s) => s.date, () => null);
+  // Jours de calendrier entre la date des prix et aujourd'hui (date locale de l'appareil).
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = date ? Math.round((today - Date.parse(`${date}T00:00:00Z`)) / 86400000) : 0;
+  banner.hidden = days < 2;
+  if (!banner.hidden) banner.textContent = `Derniers prix Cardmarket du ${frDate(date)} : Cardmarket n’a pas publié de nouveaux prix depuis. Ils seront ajoutés dès leur publication.`;
+}
+
 /** Bandeau « hors connexion », avec la date des prix affichés. */
 async function refreshOffline() {
   const banner = document.getElementById('offline');
@@ -158,5 +173,6 @@ store.onAuthChange(() => { render(); refreshWishDot(); });
 render();
 refreshWishDot();
 refreshOffline();
+refreshStale();
 
 export { frDate };
