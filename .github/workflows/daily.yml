@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -68,21 +68,8 @@ jobs:
             git push
           fi
 
-      - name: Assembler le site
-        run: |
-          mkdir -p _site/data
-          cp -R site/. _site/
-          cp data/catalog.json data/snapshot.json _site/data/
-          cp -R data/history _site/data/history
-          if [ -d data/us ]; then cp -R data/us _site/data/us; fi
-          node scripts/build-sw.mjs _site
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - id: deploy
-        uses: actions/deploy-pages@v4
-
       # Seulement quand un nouveau jour vient d'être enregistré : le passage de rattrapage n'envoie rien deux fois.
+      # Avant la publication du site : un échec de publication ne doit pas faire perdre les alertes du jour.
       # Sans les secrets, le script dit ce qui manque et s'arrête sans erreur.
       - name: Alertes de prix cible
         if: steps.save.outputs.new == 'true'
@@ -94,8 +81,31 @@ jobs:
           VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
         run: node scripts/notify.mjs --data data
 
+      - name: Assembler le site
+        run: |
+          mkdir -p _site/data
+          cp -R site/. _site/
+          cp data/catalog.json data/snapshot.json _site/data/
+          cp -R data/history _site/data/history
+          if [ -d data/us ]; then cp -R data/us _site/data/us; fi
+          node scripts/build-sw.mjs _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      # GitHub ne retrouve parfois pas tout de suite le site qui vient d'être envoyé (« No artifacts named
+      # github-pages were found ») : une seconde tentative, un peu plus tard, suffit en général.
+      - id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Attendre avant une seconde tentative de publication
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 30
+      - id: deploy_retry
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+
       - name: Garder le projet Supabase actif
-        if: vars.SUPABASE_URL != ''
+        if: always() && vars.SUPABASE_URL != ''
         continue-on-error: true
         run: |
           curl -sS -m 20 -o /dev/null -w "auth %{http_code}\n" "${{ vars.SUPABASE_URL }}/auth/v1/health" -H "apikey: ${{ vars.SUPABASE_KEY }}"
