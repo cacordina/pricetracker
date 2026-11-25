@@ -1,5 +1,6 @@
 .superpowers/
-data/
+# Copie locale de la branche data (racine seulement : scripts/data/ est versionné)
+/data/
 node_modules/
 .cache/
 .DS_Store

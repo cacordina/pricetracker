@@ -8,18 +8,23 @@ const compiled = new WeakMap();
 
 function matcher(table) {
   if (!compiled.has(table)) {
-    const names = Object.keys(table).sort((a, b) => b.length - a.length); // le plus long d'abord : Porygon2 avant Porygon
-    compiled.set(table, new RegExp(`(?<![\\p{L}\\p{N}])(${names.map(escape).join('|')})(?![\\p{L}\\p{N}])`, 'u'));
+    const names = Object.keys(table).filter(Boolean).sort((a, b) => b.length - a.length); // le plus long d'abord : Porygon2 avant Porygon
+    // Table vide : aucune traduction (une expression vide reconnaîtrait n'importe quoi).
+    compiled.set(table, names.length
+      ? new RegExp(`(?<![\\p{L}\\p{N}])(${names.map(escape).join('|')})(?![\\p{L}\\p{N}])`, 'gu')
+      : null);
   }
   return compiled.get(table);
 }
 
 export function frenchName(en, table) {
-  if (!en) return null;
+  if (!en || !table) return null;
+  const re = matcher(table);
+  if (!re) return null;
   const name = en.replace(/\s*\[.*\]\s*$/, '').trim();
-  const found = name.match(matcher(table));
+  const found = name.match(re); // toutes les espèces du nom (cartes à deux Pokémon : « Celebi & Venusaur GX »)
   if (!found) return null;
-  let out = name.replace(found[0], table[found[0]]);
+  let out = name.replace(re, (species) => table[species]);
   out = out.replace(/\bMega (?=\S)/, 'Méga-');
   // « Alolan Meowth V » → « Miaouss d’Alola V » : la région se place juste après le nom de l'espèce
   const region = out.match(/^(Alolan|Galarian|Hisuian|Paldean) /);

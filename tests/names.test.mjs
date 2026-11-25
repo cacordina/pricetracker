@@ -32,3 +32,19 @@ test('formes régionales : « Alolan X » devient « X d’Alola »', () => {
   assert.equal(fr('Hisuian Charizard'), 'Dracaufeu de Hisui');
   assert.equal(fr('Paldean Mewtwo ex'), 'Mewtwo-fr de Paldea ex');
 });
+
+test('cartes à deux Pokémon : les deux noms sont traduits', () => {
+  assert.equal(frenchName('Charizard & Sylveon GX [x]', table), 'Dracaufeu & Nymphali GX');
+});
+test('table vide ou absente : aucun nom inventé', () => {
+  assert.equal(frenchName('Mr. Mime', {}), null);
+  assert.equal(frenchName('Mr. Mime', null), null);
+});
+test('la table des espèces est bien dans le dépôt et complète', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const species = JSON.parse(await readFile(new URL('../scripts/data/species-fr.json', import.meta.url), 'utf8'));
+  assert.ok(Object.keys(species).length > 1000);
+  assert.equal(species.Sylveon, 'Nymphali');
+  assert.equal(species['Nidoran ♀'], 'Nidoran♀');
+  assert.equal(frenchName('Sylveon ex [Magical Charm | Angelite]', species), 'Nymphali ex');
+});
