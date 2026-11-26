@@ -31,12 +31,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           ref: data
           path: data
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: node --test
@@ -83,20 +83,20 @@ jobs:
 
       - name: Assembler le site
         run: node scripts/assemble-site.mjs data _site
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       # GitHub ne retrouve parfois pas tout de suite le site qui vient d'être envoyé (« No artifacts named
       # github-pages were found ») : une seconde tentative, un peu plus tard, suffit en général.
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         continue-on-error: true
       - name: Attendre avant une seconde tentative de publication
         if: steps.deploy.outcome == 'failure'
         run: sleep 30
       - id: deploy_retry
         if: steps.deploy.outcome == 'failure'
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Garder le projet Supabase actif
         if: always() && vars.SUPABASE_URL != ''
