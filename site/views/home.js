@@ -4,7 +4,7 @@ import { COL, displayName, priceOf } from '../lib/model.js';
 import { formatEuro, formatPct } from '../lib/format.js';
 import { rangeChange, sliceRange } from '../lib/series.js';
 import { marketList } from '../lib/market.js';
-import { collectionValue, collectionSeries, completion, wishStatus, sortWishes, topOwned } from '../lib/collection.js';
+import { collectionValue, collectionSeries, completion, wishStatus, sortWishes, topOwned, collectionMovers } from '../lib/collection.js';
 import { cardImg, cardRow, pctSpan, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
 
@@ -36,13 +36,15 @@ export async function render(root, { catalog, snapshot, store }) {
       <a href="#/recherche">${ICON.search}Chercher une carte</a>
     </div>
     ${wishBlock()}
+    ${movesBlock()}
     ${strip('Hausses AR et SAR sur 7 jours', ups, 'Aucune hausse notable aujourd’hui.')}
     ${strip('Sous leur moyenne 30 jours', deals, 'Aucune bonne affaire aujourd’hui.')}
     ${doneBlock()}
     <p class="muted" style="text-align:center;margin-top:26px">Prix Cardmarket du ${esc(frDate(snapshot.date))}</p>`;
 
-  // « Bonnes affaires » ouvre le Marché directement sur cet onglet.
+  // « Bonnes affaires » ouvre le Marché directement sur cet onglet ; « Voir tout » la collection triée par variation.
   root.querySelector('#to-deals').addEventListener('click', () => savePrefs('market', { ...loadPrefs('market', {}), tab: 'deals' }));
+  root.querySelector('#to-moves')?.addEventListener('click', () => savePrefs('collection', { ...loadPrefs('collection', {}), sort: 'change' }));
 
   function fan(cards) {
     return cards.length ? `<div class="fan" aria-hidden="true">${cards.map((c) => cardImg(c, catalog.sets)).join('')}</div>` : '';
@@ -83,6 +85,24 @@ export async function render(root, { catalog, snapshot, store }) {
         trend: priceOf(i.row), change: i.row?.[COL.d7] ?? null,
         sub: `Cible ${formatEuro(i.wish.target_cents)}`, tagsHtml: '<span class="tag">Sous la cible</span>',
       })).join('')}`;
+  }
+
+  /** Ma collection sur 7 jours : évolution des cartes possédées, plus fortes hausses et baisses. */
+  function movesBlock() {
+    if (!holdings?.length) return '';
+    const moves = collectionMovers(holdings, catalog, snapshot, { n: 6 });
+    const head = `<div class="section-head"><h2>Ma collection sur 7 jours</h2><a class="link" href="#/collection" id="to-moves">Voir tout</a></div>`;
+    if (!moves.known) return `${head}<p class="muted">Les variations de vos cartes apparaîtront après 7 jours de relevés.</p>`;
+    const sign = moves.deltaCents >= 0 ? '+' : '−';
+    const row = (items) => `<div class="strip">${items.map(({ card, price, change }) => `
+        <a class="tile" href="#/carte/${card.id}">${cardImg(card, catalog.sets)}
+          <b>${esc(displayName(card))}</b>${formatEuro(price)} ${pctSpan(change)}</a>`).join('')}</div>`;
+    return `${head}
+      <p style="margin:2px 0 6px"><span class="${moves.deltaCents >= 0 ? 'up' : 'down'}">${sign}${formatEuro(Math.abs(moves.deltaCents))} (${formatPct(moves.pct)})</span>
+        <span class="muted">sur les cartes dont le prix a une variation</span></p>
+      ${moves.ups.length ? `<div class="muted">En hausse</div>${row(moves.ups)}` : ''}
+      ${moves.downs.length ? `<div class="muted" style="margin-top:6px">En baisse</div>${row(moves.downs)}` : ''}
+      ${!moves.ups.length && !moves.downs.length ? '<p class="muted">Aucune de vos cartes n’a bougé cette semaine.</p>' : ''}`;
   }
 
   function strip(title, list, empty) {

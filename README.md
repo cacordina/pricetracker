@@ -12,7 +12,7 @@ Chaque jour (GitHub Actions)                 Chaque lundi
   publie le site sur GitHub Pages
 ```
 
-- **Bibliothèques** : uPlot 1.6.31 et supabase-js 2.45.4 sont copiées dans `site/vendor/`, le site ne dépend d’aucun CDN.
+- **Bibliothèques et polices** : uPlot 1.6.31 et supabase-js 2.45.4 sont copiées dans `site/vendor/`, les polices (Barlow Semi Condensed, Zen Kaku Gothic New, licence SIL OFL) dans `site/fonts/` : le site ne dépend d’aucun CDN, sauf Tesseract.js pour le scanner. Seuls les alphabets latins des polices sont hébergés ; les caractères japonais utilisent la police japonaise de l'appareil.
 - **Sources** : les exports publics de Cardmarket (`price_guide_6.json`, `products_singles_6.json`) et l'API TCGdex. Aucune page Cardmarket n'est consultée.
 - **Cartes que TCGdex ne relie pas à Cardmarket** : elles sont rattachées par recoupement des noms anglais entre le catalogue TCGplayer Japon et l'export Cardmarket (`scripts/lib/fill.mjs`). Quand Cardmarket a plusieurs versions d'une extension (une par langue), elle n'est pas complétée tant que `overrides/expansions.json` ne dit pas laquelle prendre ; la reconstruction du catalogue les liste.
 - **Sources de secours** : le catalogue TCGplayer « Pokémon Japan » (via tcgcsv.com) fournit l'image et la rareté quand TCGdex ne les a pas ; les noms français des Pokémon viennent de la table d'espèces PokeAPI (`scripts/data/species-fr.json`). Les cartes Dresseur gardent leur nom anglais.
@@ -111,6 +111,7 @@ Le site s'installe comme une application : sur iPhone, Safari → Partager → *
 - La tâche quotidienne envoie les alertes (`scripts/notify.mjs`) juste après avoir enregistré un nouveau jour ; le passage de rattrapage de la mi-journée n'envoie rien deux fois.
 - Réglages : table `push_subscriptions` (`supabase/migrations/0003_push.sql`) ; secrets du dépôt `SUPABASE_SERVICE_KEY` (clé secrète Supabase, qui lit les envies de tous les comptes) et `VAPID_PRIVATE_KEY` ; variables `SUPABASE_URL` et `VAPID_SUBJECT` (facultative, `mailto:` d'une adresse de contact pour les services push). La clé publique VAPID est dans `site/config.js`. Sans ces secrets, l'étape dit ce qui manque et n'envoie rien.
 - Un appareil désabonné ou désinstallé est retiré de la table au premier envoi refusé. Se déconnecter du site désabonne l'appareil.
+- **Résumé de la semaine** : au premier relevé de chaque semaine (le lundi, ou le jour suivant si Cardmarket n'a rien publié), les appareils abonnés reçoivent la valeur de la collection, son évolution sur 7 jours et la plus forte hausse (`scripts/lib/weekly.mjs`). La même évolution, avec les plus fortes hausses et baisses de la collection, est sur l'accueil (« Ma collection sur 7 jours »).
 
 ## Scanner de cartes (expérimental)
 

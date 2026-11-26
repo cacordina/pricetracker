@@ -60,7 +60,24 @@ const catalog = JSON.parse(await readFile(join(siteDir, 'data/catalog.json'), 'u
 const someSet = Object.keys(catalog.sets).find((s) => catalog.cards.some((c) => c.s === s && c.r === 'AR'));
 const someCard = catalog.cards.find((c) => c.s === someSet && c.r === 'AR');
 
-await check('accueil', async () => { await go('#/accueil'); expect(await page.locator('.quick a').count() === 4, 'tuiles de l’accueil'); });
+await check('accueil', async () => {
+  await go('#/accueil');
+  expect(await page.locator('.quick a').count() === 4, 'tuiles de l’accueil');
+  expect(await page.locator('#to-moves').count() === 1, 'section « Ma collection sur 7 jours » absente');
+});
+await check('polices hébergées avec le site, chargées', async () => {
+  await go('#/accueil');
+  const fonts = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return {
+      barlow: document.fonts.check('600 16px "Barlow Semi Condensed"'),
+      zen: document.fonts.check('700 16px "Zen Kaku Gothic New"'),
+      external: [...document.querySelectorAll('link[rel=stylesheet]')].map((l) => l.href).filter((h) => !h.startsWith(location.origin)),
+    };
+  });
+  expect(!fonts.external.length, `feuille de style externe : ${fonts.external.join(', ')}`);
+  expect(fonts.barlow && fonts.zen, `polices non chargées : ${JSON.stringify(fonts)}`);
+});
 for (const tab of ['up', 'down', 'deals']) {
   await check(`marché, onglet ${tab}`, async () => { await go('#/marche'); await page.click(`[data-group=tab] [data-value=${tab}]`); await page.waitForTimeout(200); });
 }
@@ -83,6 +100,8 @@ await check('ajouter des cartes : page d’extension en mode ajout, ajout en un 
   const before = await page.evaluate(() => window.__store.holdings.size);
   await page.locator('.grid .tile.pick:not(.owned)').first().click(); await page.waitForTimeout(300);
   expect(await page.evaluate(() => window.__store.holdings.size) === before + 1, 'carte non ajoutée');
+  const sizes = await page.locator('.grid .tile.owned .stepper button').evaluateAll((bs) => bs.map((b) => [Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().height)]));
+  expect(sizes.length && sizes.every(([w, h]) => w >= 40 && h >= 44), `boutons − et + trop petits : ${JSON.stringify(sizes.slice(0, 2))}`);
   await page.click('[data-group=mode] [data-value=browse]'); // remettre le mode Parcourir pour la suite
 });
 

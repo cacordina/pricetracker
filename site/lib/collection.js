@@ -145,3 +145,33 @@ export function topOwned(holdings, catalog, snapshot, n = 3) {
     .slice(0, n)
     .map((x) => x.card);
 }
+
+/**
+ * Mouvements de la collection sur 7 jours (variation du prix retenu, d7) : les plus fortes hausses et baisses
+ * parmi les cartes possédées, et l'évolution de la valeur des cartes dont la variation est connue.
+ * `deltaCents` : gain ou perte sur 7 jours pour la quantité possédée. `known` = false tant qu'aucune variation n'existe.
+ */
+export function collectionMovers(holdings, catalog, snapshot, { n = 3 } = {}) {
+  const items = [];
+  let nowCents = 0;
+  let thenCents = 0;
+  for (const h of holdings) {
+    const card = catalog.byId.get(h.id_product);
+    const row = snapshot.cards[h.id_product];
+    const price = priceOf(row);
+    const change = row?.[COL.d7] ?? null;
+    if (!card || price === null || change === null || change <= -100) continue;
+    const before = Math.round(price / (1 + change / 100));
+    nowCents += price * h.qty;
+    thenCents += before * h.qty;
+    items.push({ card, price, change, qty: h.qty, deltaCents: (price - before) * h.qty });
+  }
+  const deltaCents = nowCents - thenCents;
+  return {
+    known: items.length > 0,
+    ups: items.filter((i) => i.change > 0).sort((a, b) => b.change - a.change).slice(0, n),
+    downs: items.filter((i) => i.change < 0).sort((a, b) => a.change - b.change).slice(0, n),
+    deltaCents,
+    pct: thenCents ? round1((deltaCents / thenCents) * 100) : null,
+  };
+}

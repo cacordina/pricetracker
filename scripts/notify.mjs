@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Notifications de prix cible, après l'enregistrement d'un nouveau jour : node scripts/notify.mjs --data data
+// Notifications après l'enregistrement d'un nouveau jour : alertes de prix cible, et résumé de la collection
+// au premier relevé de chaque semaine. Usage : node scripts/notify.mjs --data data
 // Variables : SUPABASE_URL, SUPABASE_SERVICE_KEY (clé secrète, lit les envies de tous les comptes),
 // VAPID_PRIVATE_KEY (secret), VAPID_SUBJECT (adresse de contact pour les services push).
 // La clé publique VAPID est celle du site (site/config.js).
@@ -8,6 +9,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { historyFile } from '../site/lib/model.js';
 import { crossings, messages } from './lib/alerts.mjs';
+import { isNewWeek, weeklySummaries } from './lib/weekly.mjs';
 import { sendPush } from './lib/webpush.mjs';
 import { VAPID_PUBLIC_KEY } from '../site/config.js';
 
@@ -31,24 +33,10 @@ const rest = async (path, init = {}) => {
 };
 const readJson = async (file) => JSON.parse(await readFile(file, 'utf8'));
 
-try {
-  const snapshot = await readJson(join(values.data, 'snapshot.json'));
-  const catalog = await readJson(join(values.data, 'catalog.json'));
-  const byId = new Map(catalog.cards.map((c) => [c.id, c]));
-
-  const wishes = await rest('wishes?select=user_id,id_product,target_cents&target_cents=not.is.null');
-  const sets = [...new Set(wishes.map((w) => byId.get(w.id_product)?.s).filter(Boolean))];
-  const histories = {};
-  for (const set of sets) histories[set] = await readJson(join(values.data, 'history', historyFile(set))).catch(() => null);
-
-  const byUser = messages(crossings({ wishes, byId, histories, date: snapshot.date }));
-  if (!byUser.size) {
-    console.log(`${snapshot.date} : aucune envie n'est passée sous sa cible.`);
-    process.exit(0);
-  }
-
+/** Envoie à chaque appareil de chaque compte son message ; retire les appareils désabonnés. */
+async function sendToUsers(label, byUser, vapid) {
+  if (!byUser.size) return { sent: 0, failed: 0 };
   const subscriptions = await rest(`push_subscriptions?select=user_id,endpoint,p256dh,auth&user_id=in.(${[...byUser.keys()].join(',')})`);
-  const vapid = { publicKey: VAPID_PUBLIC_KEY, privateKey: VAPID_PRIVATE_KEY.trim(), subject: VAPID_SUBJECT || 'mailto:noreply@example.com' };
   let sent = 0;
   let failed = 0;
   for (const sub of subscriptions) {
@@ -57,7 +45,40 @@ try {
     else if (result.gone) await rest(`push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`, { method: 'DELETE' });
     else { failed += 1; console.log(`Envoi refusé : ${result.status}`); }
   }
-  console.log(`${snapshot.date} : ${byUser.size} compte(s) concerné(s), ${sent} notification(s) envoyée(s), ${failed} échec(s), ${subscriptions.length - sent - failed} appareil(s) désabonné(s).`);
+  console.log(`${label} : ${byUser.size} compte(s) concerné(s), ${sent} notification(s) envoyée(s), ${failed} échec(s), ${subscriptions.length - sent - failed} appareil(s) désabonné(s).`);
+  return { sent, failed };
+}
+
+try {
+  const snapshot = await readJson(join(values.data, 'snapshot.json'));
+  const catalog = await readJson(join(values.data, 'catalog.json'));
+  const byId = new Map(catalog.cards.map((c) => [c.id, c]));
+  catalog.byId = byId;
+  const vapid = { publicKey: VAPID_PUBLIC_KEY, privateKey: VAPID_PRIVATE_KEY.trim(), subject: VAPID_SUBJECT || 'mailto:noreply@example.com' };
+  let failed = 0;
+
+  // 1. Alertes de prix cible : les envies passées sous leur cible avec ce relevé.
+  const wishes = await rest('wishes?select=user_id,id_product,target_cents&target_cents=not.is.null');
+  const sets = [...new Set(wishes.map((w) => byId.get(w.id_product)?.s).filter(Boolean))];
+  const histories = {};
+  for (const set of sets) histories[set] = await readJson(join(values.data, 'history', historyFile(set))).catch(() => null);
+  const alerts = messages(crossings({ wishes, byId, histories, date: snapshot.date }));
+  if (alerts.size) failed += (await sendToUsers(`${snapshot.date}, alertes`, alerts, vapid)).failed;
+  else console.log(`${snapshot.date} : aucune envie n'est passée sous sa cible.`);
+
+  // 2. Résumé hebdomadaire de la collection, au premier relevé d'une nouvelle semaine.
+  // Toutes les extensions cotées ont les mêmes dates : celle de la première carte cotée suffit.
+  const anySet = byId.get(Number(Object.keys(snapshot.cards)[0]))?.s;
+  const dates = anySet ? (await readJson(join(values.data, 'history', historyFile(anySet))).catch(() => null))?.dates ?? [] : [];
+  const previous = dates.filter((d) => d < snapshot.date).at(-1) ?? null;
+  if (isNewWeek(snapshot.date, previous)) {
+    // Seulement les comptes qui ont activé les notifications sur au moins un appareil.
+    const users = [...new Set((await rest('push_subscriptions?select=user_id')).map((r) => r.user_id))];
+    const holdings = users.length ? await rest(`holdings?select=user_id,id_product,qty&user_id=in.(${users.join(',')})`) : [];
+    failed += (await sendToUsers(`${snapshot.date}, résumé de la semaine`, weeklySummaries({ holdings, catalog, snapshot }), vapid)).failed;
+  } else {
+    console.log(`${snapshot.date} : pas de résumé (même semaine que le relevé du ${previous}).`);
+  }
   if (failed) process.exit(1);
 } catch (err) {
   console.error(`ÉCHEC : ${err.message}`);
