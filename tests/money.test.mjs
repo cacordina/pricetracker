@@ -12,7 +12,7 @@ test('toCents', () => {
 });
 
 test('prix retenu : moyenne 7 j, sinon 30 j, sinon tendance', async () => {
-  const { mainPrice } = await import('../scripts/lib/money.mjs');
+  const { mainPrice } = await import('../site/lib/model.js');
   assert.equal(mainPrice({ a7: 225, a30: 293, t: 75 }), 225);
   assert.equal(mainPrice({ a7: null, a30: 293, t: 75 }), 293);
   assert.equal(mainPrice({ a7: null, a30: null, t: 75 }), 75);

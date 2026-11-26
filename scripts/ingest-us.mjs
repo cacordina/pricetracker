@@ -6,7 +6,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { historyFile } from './ingest.mjs';
+import { historyFile } from '../site/lib/model.js';
 import { matchGroups } from './lib/tcgcsv.mjs';
 import { marketPrices, parseEcbRate, pricesByCard, putDay, checkUsDay } from './lib/tcgplayer.mjs';
 

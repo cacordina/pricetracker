@@ -2,7 +2,8 @@
  * Alertes de prix cible (sur le prix retenu, la moyenne des ventes 7 j) : une envie déclenche une alerte le jour où son prix passe sous la cible
  * (ou l'atteint), pas tous les jours où il y reste. Le jour précédent est lu dans l'historique : rien à mémoriser.
  */
-import { displayName, formatEuro } from '../../site/lib/metrics.js';
+import { displayName } from '../../site/lib/model.js';
+import { formatEuro } from '../../site/lib/format.js';
 
 /**
  * @param wishes    [{ user_id, id_product, target_cents }]

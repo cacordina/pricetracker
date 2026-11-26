@@ -1,6 +1,7 @@
 // Une extension : toutes ses cartes avec leur prix. Deux modes : Parcourir (toucher ouvre la fiche)
 // et Ajouter à ma collection (toucher ajoute un exemplaire). Remplace l'ancien écran « Ajouter par série ».
-import { setsOverview, setCards, seriesOf, SERIES, formatEuro } from '../lib/metrics.js';
+import { formatEuro } from '../lib/format.js';
+import { setsOverview, setCards, seriesOf, SERIES } from '../lib/sets.js';
 import { setImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { filterPanel, trackPanel, cardTile, wireAdding, MODES } from '../lib/cardgrid.js';
 import { frDate } from '../lib/chart.js';

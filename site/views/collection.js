@@ -1,6 +1,9 @@
 // Écran Collection : valeur totale, courbe et mosaïque des cartes possédées.
 import { loadHistories } from '../lib/data.js';
-import { COL, completion, collectionValue, collectionSeries, collectionGain, paidSeries, formatEuro, formatPct, rangeChange, sliceRange, priceOf } from '../lib/metrics.js';
+import { COL, priceOf } from '../lib/model.js';
+import { formatEuro, formatPct } from '../lib/format.js';
+import { rangeChange, sliceRange } from '../lib/series.js';
+import { completion, collectionValue, collectionSeries, collectionGain, paidSeries } from '../lib/collection.js';
 import { cardImg, chips, onChip, esc, RANGES, loadPrefs, savePrefs, storeProblem } from '../lib/ui.js';
 import { renderPriceChart } from '../lib/chart.js';
 import { staleBanner, wireStale } from '../lib/migrate.js';

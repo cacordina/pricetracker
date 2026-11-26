@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ingest, historyFile } from '../scripts/ingest.mjs';
+import { ingest } from '../scripts/ingest.mjs';
+import { historyFile } from '../site/lib/model.js';
 import { readJson } from './helpers.mjs';
 
 const priceGuide = await readJson('prices.sample.json');

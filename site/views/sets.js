@@ -1,10 +1,11 @@
 // Extensions : toutes celles du catalogue japonais, rangées par grande série (Méga-Évolution, Écarlate et Violet…),
 // des plus récentes aux plus anciennes.
-import { setsOverview, seriesOf, SERIES, formatEuro } from '../lib/metrics.js';
+import { normalizeText } from '../lib/model.js';
+import { formatEuro } from '../lib/format.js';
+import { setsOverview, seriesOf, SERIES } from '../lib/sets.js';
 import { setImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 
 const SHOW = [{ value: 'all', label: 'Tout afficher' }, { value: 'started', label: 'Commencées seulement' }];
-const norm = (text) => String(text ?? '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
 let lastFilter = '';
 
 export async function render(root, { catalog, snapshot, store }) {
@@ -29,10 +30,10 @@ export async function render(root, { catalog, snapshot, store }) {
 
   function draw() {
     lastFilter = input.value;
-    const words = norm(input.value).split(/\s+/).filter(Boolean);
+    const words = normalizeText(input.value).split(/\s+/).filter(Boolean);
     // Un filtre texte cherche dans toutes les séries.
     const shown = all.filter((e) =>
-      words.every((w) => norm(`${e.set} ${e.name} ${catalog.sets[e.set]?.en ?? ''} ${e.series.name}`).includes(w))
+      words.every((w) => normalizeText(`${e.set} ${e.name} ${catalog.sets[e.set]?.en ?? ''} ${e.series.name}`).includes(w))
       && (prefs.show === 'all' || e.owned > 0)
       && (words.length || prefs.series === 'all' || e.series.id === prefs.series));
     root.querySelector('#chips').innerHTML = chips('series', SERIES_CHIPS, words.length ? 'all' : prefs.series)

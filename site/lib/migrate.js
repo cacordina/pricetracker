@@ -1,6 +1,6 @@
 // Quand une extension est rattachée à une autre version Cardmarket, ses cartes changent d'identifiant.
 // Ce module propose à l'utilisateur de basculer sa collection ou ses envies vers les nouveaux identifiants.
-import { staleIds } from './metrics.js';
+import { staleIds } from './collection.js';
 import { esc } from './ui.js';
 
 /** Bandeau à insérer en haut d'un écran, ou chaîne vide s'il n'y a rien à mettre à jour. */

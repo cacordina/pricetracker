@@ -1,7 +1,7 @@
 /**
  * Historique d'une extension, en colonnes :
  *   { dates: ["2026-11-09", …], cards: { [idProduct]: { p: [], t: [], l: [], a: [] } } }
- * p = prix retenu par le site (moyenne des ventes 7 j, voir mainPrice), t = tendance Cardmarket,
+ * p = prix retenu par le site (moyenne des ventes 7 j, voir mainPrice dans site/lib/model.js), t = tendance Cardmarket,
  * l = plus bas en vente, a = moyenne 1 j ; en centimes ou null. Toutes les séries ont la longueur de `dates`
  * (une série ajoutée après coup, comme p, commence par des vides).
  */

@@ -68,6 +68,22 @@ ln -sfn ../data site/data && python3 -m http.server 8791 --directory site
 
 Node 22 ou plus, aucune dépendance à installer.
 
+Test des écrans (chaque écran s'ouvre sans erreur sur les données réelles ; ajout de cartes, bouton retour, retour au même endroit d'une liste). Il demande Playwright, installé seulement pour l'occasion :
+
+```bash
+npm install --no-save --no-package-lock playwright@1.48.2 && npx playwright install chromium
+node scripts/assemble-site.mjs data _site && node tests/e2e/smoke.mjs _site
+```
+
+Sur GitHub, il tourne à chaque modification du code du site (*Test des écrans*).
+
+### Organisation du code
+
+- `scripts/` : la chaîne de données, en fonctions pures testées (`scripts/lib/`) ; `assemble-site.mjs` prépare le site publié.
+- `site/lib/model.js` : ce que le site et les scripts partagent (colonnes de l'instantané, règle du prix retenu, noms de fichiers et noms affichés) ; une seule source pour ces règles.
+- `site/lib/` côté site : `format.js` (montants), `links.js` (images, Cardmarket, eBay, Vinted), `series.js` (courbes), `market.js` (recherche, marché, TCGplayer), `collection.js` (collection, envies), `sets.js` (extensions, séries, album) ; `nav.js` (défilement, bouton retour) et `shell.js` (silhouettes, bandeaux, service worker) autour des écrans de `site/views/`.
+- Les écrans construisent leur HTML en texte : toute valeur venue des données passe par `esc()` (`site/lib/ui.js`).
+
 ## Réglages
 
 - `site/config.js` : adresse des données, adresse et clé publique du projet Supabase.
@@ -77,7 +93,7 @@ Node 22 ou plus, aucune dépendance à installer.
 
 ## Parcourir les extensions
 
-Écran `#/extensions` (accueil, recherche) : toutes les extensions du catalogue, rangées par grande série (Méga-Évolution, Écarlate et Violet, Épée et Bouclier, Soleil et Lune, XY, Noir & Blanc, HeartGold SoulSilver), des plus récentes aux plus anciennes, filtrables par série, code ou nom. La série vient du code de l'extension (`seriesOf`, `site/lib/metrics.js`), à défaut de sa date de sortie ; pour chacune, la valeur de l'extension complète (un exemplaire de chaque carte cotée) et la progression de la collection. Une extension (`#/extension/SV8a`, aussi depuis la fiche carte ou l'album) montre toutes ses cartes avec leur prix, par numéro ou par prix, filtrées par rareté et possédées ou manquantes, avec une liste déroulante pour passer à une autre extension. Deux modes : *Parcourir* (toucher ouvre la fiche) et *Ajouter à ma collection* (toucher ajoute un exemplaire, − et + règlent la quantité) ; « Ajouter des cartes » ouvre la dernière extension utilisée dans ce mode. « Toutes les AR » est la même vue appliquée à toutes les extensions. Les noms anglais des extensions et leur image (photo du produit scellé : display, sinon booster ou coffret ; à défaut, la carte la plus chère) viennent du catalogue TCGplayer. Une reconstruction du catalogue republie le site aussitôt. Sur ces écrans, le Marché et la Collection, les filtres sont regroupés derrière un bouton « Filtres » qui résume les choix en cours (`site/lib/cardgrid.js`).
+Écran `#/extensions` (accueil, recherche) : toutes les extensions du catalogue, rangées par grande série (Méga-Évolution, Écarlate et Violet, Épée et Bouclier, Soleil et Lune, XY, Noir & Blanc, HeartGold SoulSilver), des plus récentes aux plus anciennes, filtrables par série, code ou nom. La série vient du code de l'extension (`seriesOf`, `site/lib/sets.js`), à défaut de sa date de sortie ; pour chacune, la valeur de l'extension complète (un exemplaire de chaque carte cotée) et la progression de la collection. Une extension (`#/extension/SV8a`, aussi depuis la fiche carte ou l'album) montre toutes ses cartes avec leur prix, par numéro ou par prix, filtrées par rareté et possédées ou manquantes, avec une liste déroulante pour passer à une autre extension. Deux modes : *Parcourir* (toucher ouvre la fiche) et *Ajouter à ma collection* (toucher ajoute un exemplaire, − et + règlent la quantité) ; « Ajouter des cartes » ouvre la dernière extension utilisée dans ce mode. « Toutes les AR » est la même vue appliquée à toutes les extensions. Les noms anglais des extensions et leur image (photo du produit scellé : display, sinon booster ou coffret ; à défaut, la carte la plus chère) viennent du catalogue TCGplayer. Une reconstruction du catalogue republie le site aussitôt. Sur ces écrans, le Marché et la Collection, les filtres sont regroupés derrière un bouton « Filtres » qui résume les choix en cours (`site/lib/cardgrid.js`).
 
 ## Application et hors connexion
 

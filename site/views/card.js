@@ -1,6 +1,10 @@
 // Fiche d'une carte : image, prix, courbe, liens Cardmarket et eBay, collection et envies.
 import { loadHistory, loadUsSnapshot, loadUsHistory } from '../lib/data.js';
-import { COL, priceOf, priceSource, displayName, formatEuro, formatPct, formatUsd, usdToEur, usGap, alignTo, cardmarketUrl, ebaySoldUrl, vintedUrl, RARITY_LABEL } from '../lib/metrics.js';
+import { COL, priceOf, priceSource, displayName, RARITY_LABEL } from '../lib/model.js';
+import { formatEuro, formatPct, formatUsd } from '../lib/format.js';
+import { cardmarketUrl, ebaySoldUrl, vintedUrl } from '../lib/links.js';
+import { alignTo } from '../lib/series.js';
+import { usdToEur, usGap } from '../lib/market.js';
 import { cardImg, chips, onChip, pctSpan, rarityTag, esc, RANGES, loadPrefs, savePrefs } from '../lib/ui.js';
 import { renderPriceChart, frDate } from '../lib/chart.js';
 import { CARDMARKET_FILTERS } from '../config.js';

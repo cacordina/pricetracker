@@ -1,0 +1,37 @@
+name: Test des écrans
+
+# Chaque écran du site s'ouvre sans erreur sur les données réelles, et les parcours sensibles fonctionnent
+# (tests/e2e/smoke.mjs). Lancé à chaque modification du code du site, et à la demande.
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'tests/e2e/**', 'scripts/assemble-site.mjs', 'scripts/build-sw.mjs', '.github/workflows/screens.yml']
+  pull_request:
+    paths: ['site/**', 'tests/e2e/**', 'scripts/assemble-site.mjs', 'scripts/build-sw.mjs']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Playwright n'est qu'un outil de test : installé ici, jamais ajouté au site ni au dépôt.
+      - name: Installer Playwright et Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.48.2
+          npx playwright install --with-deps chromium
+      - name: Assembler le site
+        run: node scripts/assemble-site.mjs data _site
+      - name: Tester les écrans
+        run: node tests/e2e/smoke.mjs _site

@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as m from '../site/lib/metrics.js';
-import { historyFile } from '../scripts/ingest.mjs';
+import * as model from '../site/lib/model.js';
+import * as format from '../site/lib/format.js';
+import * as links from '../site/lib/links.js';
+import * as series from '../site/lib/series.js';
+import * as market from '../site/lib/market.js';
+import * as collection from '../site/lib/collection.js';
+import * as sets from '../site/lib/sets.js';
+
+const m = { ...model, ...format, ...links, ...series, ...market, ...collection, ...sets };
 
 const catalog = {
   sets: { SV8a: { name: 'テラスタルフェスex', img: 'https://assets.tcgdex.net/ja/SV/SV8a' }, M2: { name: 'インフェルノX', img: null } },
@@ -63,9 +70,6 @@ test('ebaySoldUrl : ventes conclues, numéro sur le total officiel', () => {
   assert.match(url.searchParams.get('_nkw'), /^pokemon Sylveon ex 212\/187 japanese$/);
   const bare = new URL(m.ebaySoldUrl({ s: 'X', n: 'SV-P 001', en: null }, {}));
   assert.equal(bare.searchParams.get('_nkw'), 'pokemon SV-P 001 japanese');
-});
-test('historyFile identique côté site et côté ingestion', () => {
-  for (const id of ['SV8a', 'sm3+', 'a/b', 'S-P']) assert.equal(m.historyFile(id), historyFile(id));
 });
 
 const ids = (list) => list.map((x) => x.card.id);
@@ -287,8 +291,8 @@ test('TCGplayer : courbe recalée sur les dates Cardmarket', () => {
   assert.deepEqual(m.alignTo(dates, [], []), [null, null, null, null]);
 });
 
-test('prix retenu : moyenne 7 j, sinon 30 j, sinon tendance — même règle que l’ingestion', async () => {
-  const { mainPrice } = await import('../scripts/lib/money.mjs');
+test('prix retenu : moyenne 7 j, sinon 30 j, sinon tendance — même règle que l’ingestion', () => {
+  const { mainPrice } = m;
   const rows = [[75, 179, 189, 225, 293, null, null], [75, 179, 189, null, 293, null, null], [75, 179, 189, null, null, null, null], [null, 179, null, null, null, null, null]];
   assert.deepEqual(rows.map(m.priceOf), [225, 293, 75, null]);
   assert.deepEqual(rows.map(m.priceSource), ['avg7', 'avg30', 'trend', null]);

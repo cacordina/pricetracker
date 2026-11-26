@@ -48,32 +48,6 @@ export function enrichCatalog(catalog, indexBySet) {
   return catalog;
 }
 
-/** Télécharge les produits des extensions demandées. Une extension en erreur est simplement ignorée. */
-export async function fetchIndexes(setIds, { fetchImpl = fetch, delayMs = 150, log = () => {} } = {}) {
-  const get = async (path) => {
-    const res = await fetchImpl(`${BASE}${path}`, { headers: { 'user-agent': 'jp-card-price-tracker' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()).results ?? [];
-  };
-  const out = {};
-  let groups;
-  try {
-    groups = matchGroups(await get('/groups'), setIds);
-  } catch (err) {
-    log(`tcgcsv indisponible (${err.message}) : images et raretés de secours inchangées`);
-    return out;
-  }
-  for (const [setId, groupId] of groups) {
-    try {
-      out[setId] = indexProducts(await get(`/${groupId}/products`));
-    } catch (err) {
-      log(`tcgcsv ${setId}: ${err.message}`);
-    }
-    await sleep(delayMs);
-  }
-  return out;
-}
-
 /**
  * Toutes les extensions du catalogue TCGplayer Japon, avec leurs cartes.
  * Renvoie { [setId]: { name, date, official, index, cards } } ; `setId` reprend l'identifiant TCGdex quand

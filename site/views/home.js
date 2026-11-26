@@ -1,9 +1,10 @@
 // Accueil : la collection en vitrine, puis ce qui mérite un coup d'œil aujourd'hui.
 import { loadHistories } from '../lib/data.js';
-import {
-  COL, collectionValue, collectionSeries, rangeChange, sliceRange, marketList, completion,
-  wishStatus, sortWishes, topOwned, formatEuro, formatPct, displayName, priceOf,
-} from '../lib/metrics.js';
+import { COL, displayName, priceOf } from '../lib/model.js';
+import { formatEuro, formatPct } from '../lib/format.js';
+import { rangeChange, sliceRange } from '../lib/series.js';
+import { marketList } from '../lib/market.js';
+import { collectionValue, collectionSeries, completion, wishStatus, sortWishes, topOwned } from '../lib/collection.js';
 import { cardImg, cardRow, pctSpan, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
 
@@ -80,7 +81,7 @@ export async function render(root, { catalog, snapshot, store }) {
     return `<div class="section-head"><h2>Sous votre prix cible</h2><a class="link" href="#/envies">Mes envies</a></div>
       ${under.slice(0, 3).map((i) => cardRow(i.card, catalog.sets, {
         trend: priceOf(i.row), change: i.row?.[COL.d7] ?? null,
-        sub: esc(`Cible ${formatEuro(i.wish.target_cents)}`), tags: '<span class="tag">Sous la cible</span>',
+        sub: `Cible ${formatEuro(i.wish.target_cents)}`, tagsHtml: '<span class="tag">Sous la cible</span>',
       })).join('')}`;
   }
 

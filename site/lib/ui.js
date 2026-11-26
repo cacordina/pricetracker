@@ -1,5 +1,7 @@
 // Petits utilitaires d'affichage partagés par les écrans.
-import { imageUrls, setImageUrl, displayName, formatEuro, formatPct, RARITY_LABEL } from './metrics.js';
+import { displayName, RARITY_LABEL } from './model.js';
+import { formatEuro, formatPct } from './format.js';
+import { imageUrls, setImageUrl } from './links.js';
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
@@ -53,12 +55,16 @@ export function pctSpan(value) {
 }
 
 /** Ligne de liste standard : image, nom, extension · numéro, prix et variation. */
-export function cardRow(card, sets, { trend, change, sub = '', tags = '' }) {
+/**
+ * Ligne d'une carte (liste du marché, recherche, envies). `sub` est du texte, échappé ici ;
+ * `tagsHtml` est du HTML déjà construit (pastilles), à ne remplir qu'avec des valeurs sûres.
+ */
+export function cardRow(card, sets, { trend, change, sub = '', tagsHtml = '' }) {
   return `<a class="row" href="#/carte/${card.id}">
     ${cardImg(card, sets)}
     <div class="name"><b>${esc(displayName(card))}</b>
-      <div class="muted">${esc(card.s)} ${esc(card.n)}${rarityTag(card)} ${tags}</div>
-      ${sub ? `<div class="muted">${sub}</div>` : ''}</div>
+      <div class="muted">${esc(card.s)} ${esc(card.n)}${rarityTag(card)} ${tagsHtml}</div>
+      ${sub ? `<div class="muted">${esc(sub)}</div>` : ''}</div>
     <div class="price">${formatEuro(trend)}<div>${pctSpan(change)}</div></div>
   </a>`;
 }

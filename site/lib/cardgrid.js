@@ -1,6 +1,7 @@
 // Briques communes aux écrans de cartes (extension, toutes les AR/SAR, marché) :
 // filtres regroupés derrière un bouton, interrupteur Parcourir / Ajouter, vignettes et ajout en un geste.
-import { formatEuro, displayName } from './metrics.js';
+import { displayName } from './model.js';
+import { formatEuro } from './format.js';
 import { cardImg, chips, esc, rarityTag } from './ui.js';
 
 /**

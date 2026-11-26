@@ -1,5 +1,6 @@
 // Recherche d'une carte par nom (japonais ou anglais), extension ou numéro, filtrée par rareté.
-import { searchCards, COL, priceOf } from '../lib/metrics.js';
+import { COL, priceOf } from '../lib/model.js';
+import { searchCards } from '../lib/market.js';
 import { cardRow, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 
 const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'promo', label: 'Promos' }, { value: 'all', label: 'Tout' }];

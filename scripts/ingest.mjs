@@ -4,16 +4,14 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { toCents, mainPrice } from './lib/money.mjs';
+import { toCents } from './lib/money.mjs';
+import { historyFile, mainPrice } from '../site/lib/model.js';
 import { appendDay } from './lib/history.mjs';
 import { checkDay } from './lib/guards.mjs';
 import { buildSnapshot } from './lib/snapshot.mjs';
 
 export const PRICES_URL = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json';
 
-/** Nom de fichier sûr pour l'historique d'une extension (même règle côté site). */
-export const historyFile = (setId) =>
-  `${String(setId).replace(/[^A-Za-z0-9_-]/g, (c) => `_${c.charCodeAt(0).toString(16)}`)}.json`;
 
 const readJson = async (file) => { try { return JSON.parse(await readFile(file, 'utf8')); } catch { return null; } };
 const writeAtomic = async (file, value) => {

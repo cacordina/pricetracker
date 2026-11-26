@@ -1,6 +1,6 @@
 // Chargement des fichiers de données publiés (catalogue, instantané, historiques).
 import { DATA_URL } from '../config.js';
-import { historyFile } from './metrics.js';
+import { historyFile } from './model.js';
 
 const cache = new Map();
 

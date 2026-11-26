@@ -1,5 +1,6 @@
 // Écran Marché : hausses, baisses et bonnes affaires parmi les cartes japonaises.
-import { marketList, cheaperInEurope, formatEuro } from '../lib/metrics.js';
+import { formatEuro } from '../lib/format.js';
+import { marketList, cheaperInEurope } from '../lib/market.js';
 import { loadUsSnapshot } from '../lib/data.js';
 import { cardRow, chips, onChip, loadPrefs, savePrefs, esc } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';

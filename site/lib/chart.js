@@ -1,5 +1,6 @@
 // Enveloppe uPlot : courbes de prix en euros, thème sombre.
-import { sliceRange, formatEuro } from './metrics.js';
+import { formatEuro } from './format.js';
+import { sliceRange } from './series.js';
 
 const charts = new WeakMap();
 

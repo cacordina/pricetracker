@@ -6,7 +6,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { historyFile } from './ingest.mjs';
+import { historyFile } from '../site/lib/model.js';
 import { crossings, messages } from './lib/alerts.mjs';
 import { sendPush } from './lib/webpush.mjs';
 import { VAPID_PUBLIC_KEY } from '../site/config.js';

@@ -1,6 +1,7 @@
 // Toutes les AR (et/ou SAR) du catalogue, possédées ou non, par extension ou par prix : la même vue que la page
 // d'une extension, appliquée à toutes les extensions (mêmes filtres, même mode ajout).
-import { album, albumByPrice, priceOf } from '../lib/metrics.js';
+import { priceOf } from '../lib/model.js';
+import { album, albumByPrice } from '../lib/sets.js';
 import { chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { filterPanel, trackPanel, cardTile, wireAdding, MODES } from '../lib/cardgrid.js';
 

@@ -2,7 +2,8 @@
 // À la première carte reconnue, elle s'arrête et affiche le résultat ; on relance pour la carte suivante.
 import { parseScan, mergeScans, createTracker, createEvidence } from '../lib/scan.js';
 import { prepare, readCardPasses } from '../lib/ocr.js';
-import { COL, displayName, formatEuro, priceOf } from '../lib/metrics.js';
+import { COL, displayName, priceOf } from '../lib/model.js';
+import { formatEuro } from '../lib/format.js';
 import { cardImg, esc } from '../lib/ui.js';
 
 const CARD_RATIO = 63 / 88;
