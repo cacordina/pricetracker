@@ -73,12 +73,8 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
       <div class="toolbar"><h1>Ma collection</h1><a class="link" href="#/ajout">+ Ajouter des cartes</a></div>
       ${staleBanner(holdings, catalog.aliases, 'votre collection')}
       <div class="big">${formatEuro(value.totalCents)}</div>
-      <div>${change
-        ? `<span class="${change.deltaCents >= 0 ? 'up' : 'down'}">${change.deltaCents >= 0 ? '▲ +' : '▼ '}${formatEuro(change.deltaCents)} (${formatPct(change.pct)})</span> <span class="muted">prix de vos cartes sur ${rangeLabel === 'tout' ? 'tout l’historique' : rangeLabel}</span>`
-        : '<span class="muted">Variation disponible dès le deuxième relevé de prix.</span>'}</div>
       <div class="muted">${value.count} carte${value.count > 1 ? 's' : ''}${value.unpriced ? ` · ${value.unpriced} sans prix, non comptée${value.unpriced > 1 ? 's' : ''}` : ''}</div>
-      ${gainLine(gain)}
-      <div class="muted">Complétion ${esc(prefs.done.join(' + '))} : <b>${done.owned}/${done.total}</b> (${done.pct} %) · <a href="#" id="to-done" style="text-decoration:underline">détail</a> · <a href="#/album" id="to-album" style="text-decoration:underline">voir toutes les ${esc(prefs.done.join(' + '))}</a></div>
+      ${stats(change, rangeLabel, gain)}
       <div class="chart" id="chart"></div>
       <div class="muted readout" style="min-height:1.4em"></div>
       ${paid ? '<div class="legend"><span><i></i>valeur</span><span><i class="dash"></i>payé</span></div>' : ''}
@@ -111,7 +107,6 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     }, prefs.range, { empty: 'La courbe de valeur apparaîtra avec les prochains relevés.' });
     root.querySelector('#set').onchange = (e) => { prefs.set = e.target.value; savePrefs('collection', prefs); draw(); };
     root.querySelector('#signout').onclick = () => store.signOut();
-    root.querySelector('#to-done').onclick = (e) => { e.preventDefault(); root.querySelector('#done').scrollIntoView({ behavior: 'smooth' }); };
     root.querySelector('#done-all').onclick = () => { prefs.doneAll = !prefs.doneAll; savePrefs('collection', prefs); draw(); root.querySelector('#done').scrollIntoView(); };
     // l'album s'ouvre sur les mêmes raretés que la complétion affichée ici
     for (const link of root.querySelectorAll('a.meter-row, #to-album')) {
@@ -120,16 +115,19 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     wireStale(root, holdings, catalog.aliases, 'holdings', store, refresh);
   }
 
-  function gainLine(g) {
-    if (!g.count) {
-      return g.missing ? '<div class="muted">Indiquez vos prix d’achat sur les fiches des cartes pour suivre votre plus-value.</div>' : '';
-    }
-    const others = [
-      g.missing ? `${g.missing} sans prix d’achat` : '',
-      g.unpriced ? `${g.unpriced} sans prix du jour` : '',
-    ].filter(Boolean).join(', ');
-    return `<div>Payé ${formatEuro(g.paidCents)} · <span class="${g.gainCents >= 0 ? 'up' : 'down'}">plus-value ${g.gainCents >= 0 ? '+' : ''}${formatEuro(g.gainCents)}${g.pct !== null ? ` (${formatPct(g.pct)})` : ''}</span></div>
-      ${others ? `<div class="muted">Sur ${g.count} carte${g.count > 1 ? 's' : ''} ; non comptées : ${others}.</div>` : ''}`;
+  /** Trois chiffres d'un coup d'œil : variation des prix sur la période, somme payée, plus-value. */
+  function stats(change, rangeLabel, g) {
+    const signed = (cents) => `${cents >= 0 ? '+' : '−'}${formatEuro(Math.abs(cents))}`;
+    const cell = (label, value, note = '', cls = '') => `<div><span>${esc(label)}</span><b class="${cls}">${value}</b><small>${note}</small></div>`;
+    const period = rangeLabel === 'tout' ? 'depuis le début' : `sur ${rangeLabel}`;
+    return `<div class="stats">
+      ${change
+        ? cell(`Prix ${period}`, signed(change.deltaCents), formatPct(change.pct), change.deltaCents >= 0 ? 'up' : 'down')
+        : cell(`Prix ${period}`, '—', 'dès le 2ᵉ relevé')}
+      ${g.count ? cell('Payé', formatEuro(g.paidCents), `pour ${g.count} carte${g.count > 1 ? 's' : ''}`) : cell('Payé', '—', 'prix d’achat sur les fiches')}
+      ${g.count ? cell('Plus-value', signed(g.gainCents), g.pct !== null ? formatPct(g.pct) : '', g.gainCents >= 0 ? 'up' : 'down') : cell('Plus-value', '—')}
+    </div>
+    ${g.count && (g.missing || g.unpriced) ? `<div class="muted" style="font-size:12px">Plus-value sur ${g.count} carte${g.count > 1 ? 's' : ''} : ${[g.missing ? `${g.missing} sans prix d’achat` : '', g.unpriced ? `${g.unpriced} sans prix du jour` : ''].filter(Boolean).join(', ')}.</div>` : ''}`;
   }
 
   function tile(item) {

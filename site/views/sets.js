@@ -3,7 +3,7 @@
 import { normalizeText } from '../lib/model.js';
 import { formatEuro } from '../lib/format.js';
 import { setsOverview, seriesOf, SERIES } from '../lib/sets.js';
-import { setImg, chips, onChip, esc, loadPrefs, savePrefs } from '../lib/ui.js';
+import { setImg, chips, onChip, esc, loadPrefs, savePrefs, exploreTabs } from '../lib/ui.js';
 
 const SHOW = [{ value: 'all', label: 'Tout afficher' }, { value: 'started', label: 'Commencées seulement' }];
 let lastFilter = '';
@@ -15,11 +15,13 @@ export async function render(root, { catalog, snapshot, store }) {
   const all = setsOverview(catalog, snapshot, holdings ?? []).map((e) => ({ ...e, series: seriesOf(e.set, e.date) }));
   const present = SERIES.filter((x) => all.some((e) => e.series.id === x.id));
   const SERIES_CHIPS = [{ value: 'all', label: 'Toutes' }, ...present.map((x) => ({ value: x.id, label: x.short }))];
-  const prefs = loadPrefs('sets', { show: 'all', series: 'all' });
+  // Par défaut, la série la plus récente : la liste complète fait plus de 30 écrans de haut.
+  const prefs = loadPrefs('sets', { show: 'all', series: present[0]?.id ?? 'all' });
   if (!SERIES_CHIPS.some((c) => c.value === prefs.series)) prefs.series = 'all';
   if (!holdings) prefs.show = 'all';
 
   root.innerHTML = `
+    ${exploreTabs('extensions')}
     <h1>Extensions</h1>
     <div class="muted">${all.length} extensions japonaises, ${catalog.cards.length.toLocaleString('fr-FR')} cartes</div>
     <a class="link" href="#/album" style="display:inline-block;margin-top:6px">Toutes les AR et SAR, toutes extensions ›</a>
@@ -36,7 +38,7 @@ export async function render(root, { catalog, snapshot, store }) {
       words.every((w) => normalizeText(`${e.set} ${e.name} ${catalog.sets[e.set]?.en ?? ''} ${e.series.name}`).includes(w))
       && (prefs.show === 'all' || e.owned > 0)
       && (words.length || prefs.series === 'all' || e.series.id === prefs.series));
-    root.querySelector('#chips').innerHTML = chips('series', SERIES_CHIPS, words.length ? 'all' : prefs.series)
+    root.querySelector('#chips').innerHTML = `<div class="hscroll">${chips('series', SERIES_CHIPS, words.length ? 'all' : prefs.series)}</div>`
       + (holdings ? chips('show', SHOW, prefs.show) : '');
     const groups = Map.groupBy(shown, (e) => e.series);
     root.querySelector('#list').innerHTML = shown.length
@@ -60,8 +62,8 @@ export async function render(root, { catalog, snapshot, store }) {
       : `<div class="muted">${e.total} cartes</div>`;
     return `<a class="row" href="#/extension/${encodeURIComponent(e.set)}">
       ${setImg(catalog.sets[e.set], e.top, catalog.sets)}
-      <div class="name"><b>${esc(e.set)}</b> <span class="muted">${esc(date)}</span>
-        ${catalog.sets[e.set]?.en ? `<div>${esc(catalog.sets[e.set].en)}</div>` : ''}<div class="muted">${esc(e.name)}</div></div>
+      <div class="name"><b>${esc(e.set)} <span class="muted" style="font-weight:500">· ${esc(date)}</span></b>
+        <div class="one">${esc(catalog.sets[e.set]?.en ?? e.name)}</div></div>
       <div class="price">${formatEuro(e.valueCents || null)}${progress}</div></a>`;
   }
 

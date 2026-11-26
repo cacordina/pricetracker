@@ -28,7 +28,7 @@ window.addEventListener('pagehide', keepScrolls);
 document.addEventListener('visibilitychange', () => { if (document.hidden) keepScrolls(); });
 
 // Pages qui ne sont pas un onglet : bouton retour, et page parente quand il n'y a pas de page précédente.
-const PARENT = { carte: '#/accueil', extension: '#/extensions', extensions: '#/accueil', album: '#/extensions', recherche: '#/accueil', connexion: '#/accueil' };
+const PARENT = { carte: '#/accueil', extension: '#/extensions', album: '#/extensions', recherche: '#/accueil', connexion: '#/accueil' };
 const backButton = document.getElementById('back');
 backButton.onclick = () => {
   if ((history.state?.depth ?? 0) > 0) history.back();

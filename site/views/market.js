@@ -2,13 +2,13 @@
 import { formatEuro } from '../lib/format.js';
 import { marketList, cheaperInEurope } from '../lib/market.js';
 import { loadUsSnapshot } from '../lib/data.js';
-import { cardRow, chips, onChip, loadPrefs, savePrefs, esc } from '../lib/ui.js';
+import { cardRow, chips, onChip, loadPrefs, savePrefs, esc, exploreTabs } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
 import { filterPanel, trackPanel } from '../lib/cardgrid.js';
 
 const DEFAULTS = { rarities: ['AR', 'SAR'], tab: 'up', window: 7, minEuros: 10, dealPct: 15, usPct: 20 };
 const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'promo', label: 'Promos' }, { value: 'all', label: 'Tout' }];
-const TAB_CHIPS = [{ value: 'up', label: 'Hausses' }, { value: 'down', label: 'Baisses' }, { value: 'deals', label: 'Bonnes affaires' }, { value: 'us', label: 'Moins cher qu’aux US' }];
+const TAB_CHIPS = [{ value: 'up', label: 'Hausses' }, { value: 'down', label: 'Baisses' }, { value: 'deals', label: 'Bonnes affaires' }, { value: 'us', label: 'Écart US' }];
 const US_CHIPS = [10, 20, 40].map((v) => ({ value: String(v), label: `+${v} % ou plus` }));
 const WINDOW_CHIPS = [{ value: '7', label: '7 j' }, { value: '30', label: '30 j' }];
 const MIN_CHIPS = [0, 5, 10, 50].map((v) => ({ value: String(v), label: v ? `≥ ${v} €` : 'Tous prix' }));
@@ -38,9 +38,10 @@ export async function render(root, { catalog, snapshot }) {
       ? 'Aucune bonne affaire avec ces filtres.'
       : `Aucune ${prefs.tab === 'up' ? 'hausse' : 'baisse'} avec ces filtres.`;
     root.innerHTML = `
+      ${exploreTabs('marche')}
       <h1>Marché japonais</h1>
       <div class="muted">Prix Cardmarket du ${esc(frDate(snapshot.date))}${prefs.tab === 'us' ? ` · TCGplayer du ${esc(frDate(us.date))}` : ''}</div>
-      ${chips('tab', us?.rate ? TAB_CHIPS : TAB_CHIPS.filter((c) => c.value !== 'us'), prefs.tab)}
+      <div class="hscroll">${chips('tab', us?.rate ? TAB_CHIPS : TAB_CHIPS.filter((c) => c.value !== 'us'), prefs.tab)}</div>
       ${filterPanel([
         prefs.tab === 'us'
           ? { key: 'us', label: 'TCGplayer (en euros) plus cher que Cardmarket d’au moins', options: US_CHIPS, value: String(prefs.usPct) }

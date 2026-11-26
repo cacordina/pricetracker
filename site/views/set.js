@@ -55,7 +55,6 @@ export async function render(root, { catalog, snapshot, store, param }) {
       { key: 'sort', label: 'Trier', options: SORT, value: prefs.sort },
     ];
     root.innerHTML = `
-      <div class="toolbar"><span></span><a class="link" href="#/extensions">Toutes les extensions</a></div>
       <div class="set-head">
         ${setImg(set, info.top, catalog.sets, 'high')}
         <div>

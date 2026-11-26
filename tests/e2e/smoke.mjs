@@ -85,9 +85,27 @@ await check('recherche', async () => {
   await go('#/recherche'); await page.fill('#q', someSet); await page.waitForTimeout(200);
   expect(await page.locator('#results .row').count() > 0, 'aucun résultat pour une extension existante');
 });
-await check('liste des extensions', async () => { await go('#/extensions'); expect(await page.locator('#list .row').count() > 50, 'liste trop courte'); });
+await check('liste des extensions (onglet Explorer)', async () => {
+  await go('#/extensions');
+  expect(await page.locator('#list .row').count() > 5, 'liste trop courte');
+  expect(await page.locator('#back').isHidden(), 'bouton retour sur une page d’onglet');
+  expect(await page.locator('.tabs a.on').getAttribute('data-tab') === 'explorer', 'onglet Explorer non allumé');
+  await page.click('[data-group=series] [data-value=all]'); await page.waitForTimeout(200);
+  expect(await page.locator('#list .row').count() > 50, 'toutes les séries : liste trop courte');
+});
+await check('Explorer : passer du marché aux extensions', async () => {
+  await go('#/marche'); await page.click('.seg a[href="#/extensions"]'); await page.waitForTimeout(800);
+  expect(hash() === '#/extensions', `onglet du haut vers ${hash()}`);
+});
 await check('page d’une extension', async () => { await go(`#/extension/${encodeURIComponent(someSet)}`); expect(await page.locator('.grid .tile').count() > 0, 'pas de vignettes'); });
-await check('toutes les AR', async () => { await go('#/album'); expect(await page.locator('.grid .tile').count() > 0, 'pas de vignettes'); });
+await check('toutes les AR : extensions repliables', async () => {
+  await go('#/album');
+  const groups = page.locator('details.setgroup');
+  expect(await groups.count() > 5, 'pas d’extensions');
+  expect(await page.locator('details.setgroup[open]').count() === 0, 'extensions dépliées par défaut');
+  await groups.first().locator('summary').click(); await page.waitForTimeout(200);
+  expect(await groups.first().locator('.tile').first().isVisible(), 'cartes invisibles après dépliage');
+});
 await check('fiche carte', async () => { await go(`#/carte/${someCard.id}`); expect(await page.locator('.card-head .big, .card-head p').count() > 0, 'pas de prix'); });
 await check('collection', async () => { await go('#/collection'); expect(await page.locator('.grid .tile').count() === 3, 'les 3 cartes possédées'); });
 await check('envies', async () => { await go('#/envies'); expect(await page.locator('#view .row').count() === 1, 'l’envie'); });

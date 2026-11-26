@@ -5,7 +5,7 @@ import { formatEuro, formatPct } from '../lib/format.js';
 import { rangeChange, sliceRange } from '../lib/series.js';
 import { marketList } from '../lib/market.js';
 import { collectionValue, collectionSeries, completion, wishStatus, sortWishes, topOwned, collectionMovers } from '../lib/collection.js';
-import { cardImg, cardRow, pctSpan, esc, loadPrefs, savePrefs } from '../lib/ui.js';
+import { cardImg, cardRow, listChange, esc, loadPrefs, savePrefs } from '../lib/ui.js';
 import { frDate } from '../lib/chart.js';
 
 const ICON = {
@@ -87,29 +87,23 @@ export async function render(root, { catalog, snapshot, store }) {
       })).join('')}`;
   }
 
-  /** Ma collection sur 7 jours : évolution des cartes possédées, plus fortes hausses et baisses. */
+  /** Ma collection sur 7 jours : évolution des cartes possédées, plus fortes hausses et baisses (lignes compactes). */
   function movesBlock() {
     if (!holdings?.length) return '';
-    const moves = collectionMovers(holdings, catalog, snapshot, { n: 6 });
+    const moves = collectionMovers(holdings, catalog, snapshot, { n: 3 });
     const head = `<div class="section-head"><h2>Ma collection sur 7 jours</h2><a class="link" href="#/collection" id="to-moves">Voir tout</a></div>`;
     if (!moves.known) return `${head}<p class="muted">Les variations de vos cartes apparaîtront après 7 jours de relevés.</p>`;
-    const sign = moves.deltaCents >= 0 ? '+' : '−';
-    const row = (items) => `<div class="strip">${items.map(({ card, price, change }) => `
-        <a class="tile" href="#/carte/${card.id}">${cardImg(card, catalog.sets)}
-          <b>${esc(displayName(card))}</b>${formatEuro(price)} ${pctSpan(change)}</a>`).join('')}</div>`;
+    const rows = [...moves.ups, ...moves.downs].map(({ card, price, change }) => cardRow(card, catalog.sets, { trend: price, change }));
     return `${head}
-      <p style="margin:2px 0 6px"><span class="${moves.deltaCents >= 0 ? 'up' : 'down'}">${sign}${formatEuro(Math.abs(moves.deltaCents))} (${formatPct(moves.pct)})</span>
-        <span class="muted">sur les cartes dont le prix a une variation</span></p>
-      ${moves.ups.length ? `<div class="muted">En hausse</div>${row(moves.ups)}` : ''}
-      ${moves.downs.length ? `<div class="muted" style="margin-top:6px">En baisse</div>${row(moves.downs)}` : ''}
-      ${!moves.ups.length && !moves.downs.length ? '<p class="muted">Aucune de vos cartes n’a bougé cette semaine.</p>' : ''}`;
+      <p style="margin:2px 0 4px"><span class="${moves.deltaCents >= 0 ? 'up' : 'down'}">${moves.deltaCents >= 0 ? '+' : '−'}${formatEuro(Math.abs(moves.deltaCents))} (${formatPct(moves.pct)})</span> <span class="muted">en 7 jours</span></p>
+      ${rows.length ? rows.join('') : '<p class="muted">Aucune de vos cartes n’a bougé cette semaine.</p>'}`;
   }
 
   function strip(title, list, empty) {
     return `<div class="section-head"><h2>${esc(title)}</h2><a class="link" href="#/marche">Tout le marché</a></div>
       ${list.length ? `<div class="strip">${list.map(({ card, trend, change }) => `
         <a class="tile" href="#/carte/${card.id}">${cardImg(card, catalog.sets)}
-          <b>${esc(displayName(card))}</b>${formatEuro(trend)} ${pctSpan(change)}</a>`).join('')}</div>`
+          <b>${esc(displayName(card))}</b>${formatEuro(trend)} ${listChange(change)}</a>`).join('')}</div>`
         : `<p class="muted">${esc(empty)}</p>`}`;
   }
 

@@ -288,3 +288,31 @@ select.setpick { width: 100%; margin-top: 10px; padding: 10px 12px; border-radiu
 .sk-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 @keyframes sk { from { background-position: 100% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+/* Onglets en haut de l'écran Explorer (Marché | Extensions). */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 0 0 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.seg a { text-align: center; padding: 9px 6px; border-radius: 9px; font-weight: 700; font-size: 14px; color: var(--muted); }
+.seg a.on { background: var(--gold); color: #1a1505; }
+
+/* Rangée de puces sur une seule ligne, qu'on fait glisser (séries des extensions). */
+.hscroll .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+.hscroll .chips::-webkit-scrollbar { display: none; }
+.hscroll .chip { flex: none; }
+/* Texte sur une ligne, coupé par « … » s'il est trop long. */
+.one { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Extension repliable (Toutes les AR) : le titre et la progression, les cartes au dépliage. */
+details.setgroup { border-top: 1px solid var(--line); }
+details.setgroup > summary { list-style: none; cursor: pointer; display: flex; gap: 10px; align-items: center; justify-content: space-between; min-height: 48px; padding: 6px 0; }
+details.setgroup > summary::-webkit-details-marker { display: none; }
+details.setgroup > summary::after { content: '▾'; color: var(--muted); flex: none; transition: transform .15s; }
+details.setgroup[open] > summary::after { transform: rotate(180deg); }
+details.setgroup > summary .one { flex: 1; min-width: 0; }
+details.setgroup > .grid { margin-bottom: 6px; }
+
+/* Chiffres clés de la collection, en grille. */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 4px; }
+.stats > div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; min-width: 0; }
+.stats span { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats b { display: block; font: 700 17px/1.25 var(--num); margin-top: 2px; white-space: nowrap; }
+.stats small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

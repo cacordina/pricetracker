@@ -21,7 +21,7 @@ export function cardImg(card, sets, quality = 'low') {
 export function setImg(set, card, sets, quality = 'low') {
   const urls = [setImageUrl(set, quality), ...(card ? imageUrls(card, sets, quality) : [])].filter(Boolean);
   const label = esc(set?.en ?? set?.name ?? '');
-  if (!urls.length) return `<div class="noimg setimg">${label}</div>`;
+  if (!urls.length) return `<div class="noimg setimg" role="img" aria-label="${label}"></div>`; // le nom est déjà écrit à côté
   return `<img class="setimg" src="${esc(urls[0])}" alt="${label}" loading="lazy" referrerpolicy="no-referrer" data-next="${esc(urls.slice(1).join(' '))}" onerror="imgFallback(this)">`;
 }
 
@@ -34,8 +34,9 @@ window.imgFallback = (img) => {
     return;
   }
   const box = document.createElement('div');
-  box.className = 'noimg';
-  box.textContent = img.alt || 'Image indisponible';
+  box.className = img.classList.contains('setimg') ? 'noimg setimg' : 'noimg';
+  // Image d'extension : case vide, le nom est déjà écrit à côté ; carte : son nom dans la case.
+  if (img.classList.contains('setimg')) { box.setAttribute('role', 'img'); box.setAttribute('aria-label', img.alt); } else box.textContent = img.alt || 'Image indisponible';
   img.replaceWith(box);
 };
 
@@ -54,6 +55,15 @@ export function pctSpan(value) {
   return `<span class="${cls}">${formatPct(value)}</span>`;
 }
 
+/** Variation dans une liste : rien quand elle est nulle (un « 0,0 % » par ligne n'apprend rien). */
+export const listChange = (value) => (value === 0 ? '' : pctSpan(value));
+
+/** Onglets en haut de l'écran Explorer : Marché | Extensions. */
+export function exploreTabs(active) {
+  const tab = (route, label) => `<a href="#/${route}" class="${route === active ? 'on' : ''}"${route === active ? ' aria-current="page"' : ''}>${label}</a>`;
+  return `<nav class="seg" aria-label="Explorer">${tab('marche', 'Marché')}${tab('extensions', 'Extensions')}</nav>`;
+}
+
 /** Ligne de liste standard : image, nom, extension · numéro, prix et variation. */
 /**
  * Ligne d'une carte (liste du marché, recherche, envies). `sub` est du texte, échappé ici ;
@@ -65,7 +75,7 @@ export function cardRow(card, sets, { trend, change, sub = '', tagsHtml = '' }) 
     <div class="name"><b>${esc(displayName(card))}</b>
       <div class="muted">${esc(card.s)} ${esc(card.n)}${rarityTag(card)} ${tagsHtml}</div>
       ${sub ? `<div class="muted">${esc(sub)}</div>` : ''}</div>
-    <div class="price">${formatEuro(trend)}<div>${pctSpan(change)}</div></div>
+    <div class="price">${formatEuro(trend)}<div>${listChange(change)}</div></div>
   </a>`;
 }
 

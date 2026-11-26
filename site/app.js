@@ -19,7 +19,7 @@ const ROUTES = {
   connexion: () => import('./views/login.js'),
 };
 // Onglet de la barre du bas allumé pour chaque écran (null : aucun).
-const TAB_OF = { album: 'collection', recherche: null, carte: null, connexion: null, extensions: null, extension: null };
+const TAB_OF = { marche: 'explorer', extensions: 'explorer', extension: 'explorer', album: 'explorer', recherche: null, carte: null, connexion: null };
 
 const view = document.getElementById('view');
 let renderId = 0;

@@ -8,6 +8,12 @@ import { filterPanel, trackPanel, cardTile, wireAdding, MODES } from '../lib/car
 const RARITIES = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }];
 const SHOW = [{ value: 'all', label: 'Possédées ou non', quiet: true }, { value: 'missing', label: 'Manquantes' }, { value: 'owned', label: 'Possédées' }];
 const SORT = [{ value: 'set', label: 'Par extension', quiet: true }, { value: 'desc', label: 'Prix ↓' }, { value: 'asc', label: 'Prix ↑' }];
+const PAGE = 60;
+
+// Gardés tant que l'app est ouverte : extensions dépliées et nombre de cartes affichées en tri par prix,
+// pour retrouver l'écran tel qu'on l'a laissé en revenant d'une fiche.
+const openSets = new Set();
+let shownByPrice = PAGE;
 
 export async function render(root, { catalog, snapshot, store, param }) {
   // L'album reste consultable sans connexion : on n'affiche alors simplement pas ce qui est possédé.
@@ -20,6 +26,21 @@ export async function render(root, { catalog, snapshot, store, param }) {
   let sort = param ? 'set' : prefs.sort;
   const panel = { open: false };
   trackPanel(root, panel);
+  if (param) openSets.add(param);
+  root.addEventListener('toggle', (event) => {
+    const group = event.target.closest?.('details.setgroup');
+    if (group) group.open ? openSets.add(group.dataset.set) : openSets.delete(group.dataset.set);
+  }, true);
+  root.addEventListener('click', (event) => {
+    if (event.target.closest('#more')) { shownByPrice += PAGE; draw(); }
+    if (event.target.closest('#toggle-all')) {
+      const groups = [...root.querySelectorAll('details.setgroup')];
+      const open = !openSets.size;
+      openSets.clear();
+      for (const g of groups) { g.open = open; if (open) openSets.add(g.dataset.set); }
+      root.querySelector('#toggle-all').textContent = open ? 'Tout replier' : 'Tout déplier';
+    }
+  });
 
   function draw(message = '') {
     const holdings = [...owned].map(([id, qty]) => ({ id_product: id, qty }));
@@ -32,7 +53,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
       { key: 'sort', label: 'Trier', options: SORT, value: sort },
     ];
     root.innerHTML = `
-      <div class="toolbar"><h1>Toutes les ${esc(prefs.rarities.join(' + '))}</h1><a class="link" href="#/extensions">Extensions</a></div>
+      <h1>Toutes les ${esc(prefs.rarities.join(' + '))}</h1>
       <div class="muted">${total} cartes dans ${full.length} extensions${connected ? ` · ${have} possédées (${total ? Math.round((have / total) * 100) : 0} %)` : ' · connectez-vous pour voir celles que vous possédez'}</div>
       ${connected ? `<div class="modes">${chips('mode', MODES, prefs.mode)}</div>` : ''}
       ${prefs.mode === 'add' ? '<div class="muted">Touchez une carte pour l’ajouter ; − et + règlent la quantité. Enregistrement immédiat.</div>' : ''}
@@ -46,18 +67,22 @@ export async function render(root, { catalog, snapshot, store, param }) {
   function bySet(holdings) {
     const groups = album(catalog, holdings, prefs);
     if (!groups.length) return '<p class="state">Aucune carte avec ces filtres.</p>';
-    return groups.map((group) => `<section id="set-${esc(group.set)}">
-      <h2 class="toolbar"><a href="#/extension/${encodeURIComponent(group.set)}">${esc(group.set)} <span class="muted">${esc(catalog.sets[group.set]?.en ?? group.name)}</span> <span class="muted">›</span></a>
-        <span class="muted">${connected ? `${group.owned}/${group.total}${group.owned === group.total ? ' ✓' : ''}` : group.total}</span></h2>
+    // Une extension par bloc repliable : la liste dépliée entière ferait plus de 40 écrans de haut.
+    return `<p style="text-align:right;margin:8px 0 0"><button type="button" class="link" id="toggle-all">${openSets.size ? 'Tout replier' : 'Tout déplier'}</button></p>`
+      + groups.map((group) => `<details class="setgroup" id="set-${esc(group.set)}" data-set="${esc(group.set)}"${openSets.has(group.set) ? ' open' : ''}>
+      <summary><span class="one"><b>${esc(group.set)}</b> <span class="muted">${esc(catalog.sets[group.set]?.en ?? group.name)}</span></span>
+        <span class="muted">${connected ? `${group.owned}/${group.total}${group.owned === group.total ? ' ✓' : ''}` : group.total}</span></summary>
       <div class="grid">${group.cards.map(({ card, qty }) => tile({ card, qty, price: priceOf(snapshot.cards[card.id]) })).join('')}</div>
-    </section>`).join('');
+      <a class="link" href="#/extension/${encodeURIComponent(group.set)}" style="display:inline-block;margin:8px 0 4px">Toute l’extension ${esc(group.set)} ›</a>
+    </details>`).join('');
   }
 
   function byPrice(holdings) {
     const list = albumByPrice(catalog, holdings, snapshot, { rarities: prefs.rarities, show: prefs.show, dir: sort });
-    return list.length
-      ? `<div class="grid" style="margin-top:12px">${list.map(({ card, qty, trend }) => tile({ card, qty, price: trend }, true)).join('')}</div>`
-      : '<p class="state">Aucune carte avec ces filtres.</p>';
+    if (!list.length) return '<p class="state">Aucune carte avec ces filtres.</p>';
+    const rest = list.length - shownByPrice;
+    return `<div class="grid" style="margin-top:12px">${list.slice(0, shownByPrice).map(({ card, qty, trend }) => tile({ card, qty, price: trend }, true)).join('')}</div>
+      ${rest > 0 ? `<button type="button" class="btn sec" id="more">Afficher ${Math.min(PAGE, rest)} de plus <span class="muted">(${rest} restantes)</span></button>` : ''}`;
   }
 
   onChip(root, (group, value) => {
@@ -68,6 +93,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
       prefs[group] = value;
     } else if (group === 'sort') {
       sort = prefs.sort = value;
+      shownByPrice = PAGE;
       window.scrollTo(0, 0);
     } else return;
     savePrefs('album', prefs);
