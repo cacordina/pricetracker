@@ -81,6 +81,16 @@ await check('polices hébergées avec le site, chargées', async () => {
 for (const tab of ['up', 'down', 'deals']) {
   await check(`marché, onglet ${tab}`, async () => { await go('#/marche'); await page.click(`[data-group=tab] [data-value=${tab}]`); await page.waitForTimeout(200); });
 }
+await check('bonnes affaires : critères « au plus bas » et « sous la moyenne 30 j »', async () => {
+  await go('#/marche'); await page.click('[data-group=tab] [data-value=deals]'); await page.waitForTimeout(200);
+  await page.click('details.filters summary');
+  expect(await page.locator('[data-group=dealKind] .chip').count() === 3, 'les trois critères');
+  const ready = await page.evaluate(() => fetch('./data/snapshot.json').then((r) => r.json()).then((s) => s.lowReady?.[30]));
+  await page.click('[data-group=dealKind] [data-value=low30]'); await page.waitForTimeout(200);
+  if (!ready) expect(await page.locator('.banner', { hasText: 'demande 30 jours' }).count() === 1, 'bandeau d’attente absent');
+  await page.click('[data-group=dealKind] [data-value=avg]'); await page.waitForTimeout(200);
+  expect(await page.locator('[data-group=deal] .chip').count() === 3, 'seuils de « sous la moyenne 30 j »');
+});
 await check('recherche', async () => {
   await go('#/recherche'); await page.fill('#q', someSet); await page.waitForTimeout(200);
   expect(await page.locator('#results .row').count() > 0, 'aucun résultat pour une extension existante');

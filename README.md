@@ -105,7 +105,9 @@ Le site s'installe comme une application : sur iPhone, Safari → Partager → *
 
 ## Alertes de prix cible
 
-Écran Envies → *Alertes de prix cible* → *Activer* : cet appareil reçoit une notification le matin où une carte de vos envies passe sous son prix cible (ou l'atteint). Une seule par passage sous la cible, pas tous les jours où elle y reste ; plusieurs cartes le même jour font une seule notification. Toucher la notification ouvre la carte, ou les envies.
+Écran Envies → *Alertes de prix cible* → *Activer* : cet appareil reçoit une notification le matin où une carte de vos envies passe sous son prix cible (ou l'atteint), et aussi, avec ou sans cible, quand elle devient la moins chère depuis 30 ou 90 jours ou perd 15 % ou plus en 7 jours (`scripts/lib/alerts.mjs`). Une seule alerte par carte et par jour (cible d'abord), le jour où la situation apparaît et pas tous les jours où elle dure ; plusieurs cartes le même jour font une seule notification. Toucher la notification ouvre la carte, ou les envies.
+
+**Au plus bas depuis 30 / 90 jours** (`lowestSince`, `site/lib/series.js`) : le prix du jour est le plus bas de la période sur l'historique du site, et au moins 5 % sous sa médiane (une carte au prix immobile n'est jamais signalée). Calculé à l'ingestion et enregistré dans l'instantané ; il faut que l'historique remonte assez loin (30 jours, puis 90). Il sert au Marché (*Bonnes affaires*, critère par défaut), à l'accueil, à la fiche carte et aux envies.
 
 - Sur iPhone, il faut iOS 16.4 ou plus et le site installé sur l'écran d'accueil ; l'activation se fait depuis l'icône. Sur Android et sur ordinateur, depuis le navigateur.
 - La tâche quotidienne envoie les alertes (`scripts/notify.mjs`) juste après avoir enregistré un nouveau jour ; le passage de rattrapage de la mi-journée n'envoie rien deux fois.

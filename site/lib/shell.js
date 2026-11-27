@@ -26,7 +26,7 @@ export async function refreshWishDot(store) {
   try {
     if (!(await store.getSession())) throw new Error('hors connexion');
     const [wishes, snapshot] = await Promise.all([store.listWishes(), loadSnapshot()]);
-    dot.hidden = !wishes.some((w) => wishStatus(w, snapshot.cards[w.id_product], null).underTarget);
+    dot.hidden = !wishes.some((w) => wishStatus(w, snapshot.cards[w.id_product]).underTarget);
   } catch {
     dot.hidden = true;
   }

@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { historyFile } from '../site/lib/model.js';
-import { crossings, messages } from './lib/alerts.mjs';
+import { wishEvents, messages } from './lib/alerts.mjs';
 import { isNewWeek, weeklySummaries } from './lib/weekly.mjs';
 import { sendPush } from './lib/webpush.mjs';
 import { VAPID_PUBLIC_KEY } from '../site/config.js';
@@ -57,14 +57,14 @@ try {
   const vapid = { publicKey: VAPID_PUBLIC_KEY, privateKey: VAPID_PRIVATE_KEY.trim(), subject: VAPID_SUBJECT || 'mailto:noreply@example.com' };
   let failed = 0;
 
-  // 1. Alertes de prix cible : les envies passées sous leur cible avec ce relevé.
-  const wishes = await rest('wishes?select=user_id,id_product,target_cents&target_cents=not.is.null');
+  // 1. Alertes sur les envies : passage sous la cible, plus bas depuis 30/90 jours, baisse de 15 % en 7 jours.
+  const wishes = await rest('wishes?select=user_id,id_product,target_cents'); // avec ou sans cible
   const sets = [...new Set(wishes.map((w) => byId.get(w.id_product)?.s).filter(Boolean))];
   const histories = {};
   for (const set of sets) histories[set] = await readJson(join(values.data, 'history', historyFile(set))).catch(() => null);
-  const alerts = messages(crossings({ wishes, byId, histories, date: snapshot.date }));
+  const alerts = messages(wishEvents({ wishes, byId, histories, date: snapshot.date }));
   if (alerts.size) failed += (await sendToUsers(`${snapshot.date}, alertes`, alerts, vapid)).failed;
-  else console.log(`${snapshot.date} : aucune envie n'est passée sous sa cible.`);
+  else console.log(`${snapshot.date} : aucune alerte sur les envies.`);
 
   // 2. Résumé hebdomadaire de la collection, au premier relevé d'une nouvelle semaine.
   // Toutes les extensions cotées ont les mêmes dates : celle de la première carte cotée suffit.

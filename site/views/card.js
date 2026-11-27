@@ -52,6 +52,7 @@ export async function render(root, { catalog, snapshot, store, param }) {
         ${priced ? `
           <div class="big" style="margin-top:10px">${formatEuro(price)}</div>
           <div class="muted" style="font-size:12px">${SOURCE_LABEL[source]}</div>
+          ${row[COL.lowDays] ? `<div style="margin:4px 0"><span class="tag">Au plus bas depuis ${row[COL.lowDays]} jours</span> <span class="muted" style="font-size:12px">${formatPct(row[COL.lowGap])} sous la médiane</span></div>` : ''}
           <div>${row[COL.d7] === null && row[COL.d30] === null
             ? '<span class="muted" style="font-size:13px">Variations après 7 jours de relevés</span>'
             : `${pctSpan(row[COL.d7])} <span class="muted">7 j</span> &nbsp; ${pctSpan(row[COL.d30])} <span class="muted">30 j</span>`}</div>

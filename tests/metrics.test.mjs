@@ -149,19 +149,15 @@ test('collection : plus-value sur les cartes dont le prix d’achat et le prix d
 
 test('envies : statut', () => {
   const row = snapshot.cards[803325];
-  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 12000 }, row, null), { underTarget: true, gapCents: -424, low30: false, rising: true });
-  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 11000 }, row, null), { underTarget: false, gapCents: 576, low30: false, rising: true });
-  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: null }, row, null), { underTarget: false, gapCents: null, low30: false, rising: true });
-  assert.deepEqual(m.wishStatus({ id_product: 1, target_cents: 500 }, undefined, null), { underTarget: false, gapCents: null, low30: false, rising: false });
+  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 12000 }, row), { underTarget: true, gapCents: -424, lowDays: null, rising: true });
+  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: 11000 }, row), { underTarget: false, gapCents: 576, lowDays: null, rising: true });
+  assert.deepEqual(m.wishStatus({ id_product: 803325, target_cents: null }, row), { underTarget: false, gapCents: null, lowDays: null, rising: true });
+  assert.deepEqual(m.wishStatus({ id_product: 1, target_cents: 500 }, undefined), { underTarget: false, gapCents: null, lowDays: null, rising: false });
 });
-test('envies : « au plus bas sur 30 j » demande au moins 14 jours d’historique', () => {
-  const row = [100, null, null, null, null, 0, 0];
-  const mk = (vals) => ({ dates: vals.map((_, i) => `d${i}`), cards: { 1: { p: vals } } });
-  const wish = { id_product: 1, target_cents: null };
-  assert.equal(m.wishStatus(wish, row, mk([...Array(13).fill(150), 100])).low30, true);
-  assert.equal(m.wishStatus(wish, row, mk([...Array(12).fill(150), 100])).low30, false);
-  assert.equal(m.wishStatus(wish, row, mk([90, ...Array(12).fill(150), 100])).low30, false);
-  assert.equal(m.wishStatus(wish, row, mk([90, ...Array(30).fill(150), 100])).low30, true); // 90 est sorti de la fenêtre
+test('envies : « au plus bas depuis N jours » vient de l’instantané', () => {
+  const row = [100, null, null, 100, null, 0, 0, 90, -12.5];
+  assert.equal(m.wishStatus({ id_product: 1, target_cents: null }, row).lowDays, 90);
+  assert.equal(m.wishStatus({ id_product: 1, target_cents: null }, [100, null, null, 100, null, 0, 0]).lowDays, null); // ancien instantané
 });
 test('envies : ordre — sous la cible d’abord, puis écart croissant, sans cible à la fin', () => {
   const items = [
@@ -359,4 +355,34 @@ test('vintedUrl : nom français, numéro sur le total officiel, plus récentes d
   assert.equal(url.searchParams.get('search_text'), 'pokemon Nymphali ex 212/187');
   assert.equal(url.searchParams.get('order'), 'newest_first');
   assert.equal(new URL(m.vintedUrl({ s: 'X', n: 'SV-P 001', en: 'Pikachu [y]' })).searchParams.get('search_text'), 'pokemon Pikachu SV-P 001');
+});
+
+test('au plus bas depuis 30 / 90 jours : sur l’historique, nettement sous la médiane', () => {
+  const day = (i) => new Date(Date.UTC(2026, 8, 1) + i * 86400000).toISOString().slice(0, 10);
+  const dates = Array.from({ length: 100 }, (_, i) => day(i));
+  const at = dates.length - 1;
+  const flat = dates.map(() => 1000);
+  assert.equal(m.lowestSince(dates, flat, at), null); // prix immobile : jamais « au plus bas »
+  const falling = dates.map((_, i) => (i === at ? 800 : 1000 + (i % 5) * 10));
+  assert.deepEqual(m.lowestSince(dates, falling, at), { days: 90, gapPct: -21.6 });
+  const recentDip = dates.map((_, i) => (i < 50 ? 700 : i === at ? 800 : 1000)); // plus bas il y a 2 mois
+  assert.deepEqual(m.lowestSince(dates, recentDip, at), { days: 30, gapPct: -20 });
+  const short = dates.slice(80); // 20 jours d'historique : rien n'est encore sûr
+  assert.equal(m.lowestSince(short, falling.slice(80), short.length - 1), null);
+  const sparse = dates.map((_, i) => (i === at ? 800 : i % 10 ? null : 1000)); // trop peu de relevés
+  assert.equal(m.lowestSince(dates, sparse, at), null);
+  assert.equal(m.lowestSince(dates, dates.map(() => null), at), null);
+});
+
+test('marché : bonnes affaires « au plus bas depuis 30 / 90 jours », par écart à la médiane', () => {
+  const snap = { cards: {
+    803325: [0, 0, 0, 11576, 0, null, null, 90, -18.0],
+    803303: [0, 0, 0, 163, 0, null, null, 30, -9.5],
+    3: [0, 0, 0, 1000, 0, null, null, null, null],
+    5: [0, 0, 0, 5200, 0, null, null, 30, -25.1],
+  } };
+  const ids = (list) => list.map((x) => x.card.id);
+  assert.deepEqual(ids(m.marketList(catalog, snap, { tab: 'deals', deal: 'low30' })), [5, 803325, 803303]); // 90 j compte aussi pour 30 j
+  assert.deepEqual(ids(m.marketList(catalog, snap, { tab: 'deals', deal: 'low90' })), [803325]);
+  assert.equal(m.marketList(catalog, snap, { tab: 'deals', deal: 'low30' })[0].change, -25.1);
 });

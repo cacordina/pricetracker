@@ -37,13 +37,13 @@ const prices = new Map([
 test('historique court : pas de variation estimée, approx le signale', () => {
   const s = buildSnapshot({ date: d(10), prices, histories: { A: { dates: [d(9), d(10)], cards: { 1: series([110, 120]) } } }, catalog });
   assert.deepEqual(s.approx, { d7: true, d30: true });
-  assert.deepEqual(s.cards[1], [120, 60, 115, 100, 150, null, null]);
+  assert.deepEqual(s.cards[1], [120, 60, 115, 100, 150, null, null, null, null]);
   assert.equal(s.date, d(10));
 });
 test('carte sans aucun prix : absente', () => {
   const s = buildSnapshot({ date: d(10), prices, histories: { A: { dates: [d(10)], cards: {} } }, catalog });
   assert.equal(2 in s.cards, false);
-  assert.deepEqual(s.cards[3], [50, null, null, null, 0, null, null]);
+  assert.deepEqual(s.cards[3], [50, null, null, null, 0, null, null, null, null]);
 });
 test('historique d’au moins 7 jours : d7 calculé sur le prix retenu, d30 pas encore', () => {
   const s = buildSnapshot({ date: d(10), prices, histories: { A: h }, catalog });
@@ -56,4 +56,15 @@ test('dates assez anciennes mais pas encore de prix retenu à la référence : v
   const s = buildSnapshot({ date: d(10), prices, histories: { A: old }, catalog });
   assert.deepEqual(s.approx, { d7: true, d30: true });
   assert.equal(s.cards[1][5], null);
+});
+
+test('au plus bas depuis 30 jours : enregistré dans l’instantané, avec la disponibilité du signal', () => {
+  const day = (i) => new Date(Date.UTC(2026, 9, 1) + i * 86400000).toISOString().slice(0, 10);
+  const ds = Array.from({ length: 35 }, (_, i) => day(i));
+  const today = ds.at(-1);
+  const hist = { dates: ds, cards: { 1: series(ds.map((_, i) => (i === ds.length - 1 ? 80 : 100 + (i % 3)))) } };
+  const s = buildSnapshot({ date: today, prices: new Map([[1, { t: 80, l: 70, a: 80, a7: 80, a30: 99 }]]), histories: { A: hist }, catalog });
+  assert.deepEqual(s.cards[1].slice(7), [30, -20.8]); // 80 contre une médiane de 101
+  assert.deepEqual(s.lowReady, { 30: true, 90: false });
+  assert.equal(s.since, ds[0]);
 });

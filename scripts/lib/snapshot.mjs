@@ -1,4 +1,5 @@
 /** Instantané du jour et variations. Prix en centimes, variations en % à une décimale. */
+import { lowestSince, LOW_WINDOWS } from '../../site/lib/series.js';
 const TOLERANCE_DAYS = 3;
 
 const shift = (date, days) => new Date(Date.parse(`${date}T00:00:00Z`) - days * 86400000).toISOString().slice(0, 10);
@@ -26,7 +27,9 @@ export function pctChange(history, id, date, days) {
 }
 
 /**
- * snapshot = { date, approx: { d7, d30 }, cards: { [id]: [trend, low, avg1, avg7, avg30, d7, d30] } }
+ * snapshot = { date, approx: { d7, d30 }, lowReady: { 30, 90 }, cards: { [id]: [trend, low, avg1, avg7, avg30, d7, d30, lowDays, lowGap] } }
+ * lowDays / lowGap : « au plus bas depuis 30 ou 90 jours » et écart à la médiane (lowestSince) ; lowReady dit si
+ * l'historique remonte déjà assez loin pour chaque durée.
  * Les variations portent sur le prix retenu (moyenne 7 j). Tant que l'historique ne remonte pas assez loin,
  * elles valent null (on n'estime plus) et `approx` le signale (true = pas encore disponible).
  */
@@ -45,7 +48,12 @@ export function buildSnapshot({ date, prices, histories, catalog }) {
     const h = histories[card.s];
     const d7 = approx.d7 ? null : pctChange(h, card.id, date, 7);
     const d30 = approx.d30 ? null : pctChange(h, card.id, date, 30);
-    cards[card.id] = [p.t ?? null, p.l ?? null, p.a ?? null, p.a7 ?? null, p.a30 ?? null, d7, d30];
+    const at = h?.dates.indexOf(date) ?? -1;
+    const low = at >= 0 ? lowestSince(h.dates, h.cards[card.id]?.p, at) : null;
+    cards[card.id] = [p.t ?? null, p.l ?? null, p.a ?? null, p.a7 ?? null, p.a30 ?? null, d7, d30, low?.days ?? null, low?.gapPct ?? null];
   }
-  return { date, approx, cards };
+  // Le signal « au plus bas depuis N jours » existe-t-il déjà ? (l'historique doit remonter assez loin)
+  const firstDate = all.map((h) => h.dates[0]).filter(Boolean).sort()[0];
+  const lowReady = Object.fromEntries(LOW_WINDOWS.map(({ days }) => [days, Boolean(firstDate) && Date.parse(`${shift(date, days)}T00:00:00Z`) + 3 * 86400000 >= Date.parse(`${firstDate}T00:00:00Z`)]));
+  return { date, approx, lowReady, since: firstDate ?? null, cards };
 }

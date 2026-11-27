@@ -26,8 +26,12 @@ export function searchCards(catalog, query, limit = 60, { rarities = null } = {}
   return out;
 }
 
-/** Liste du marché : hausses, baisses ou bonnes affaires. */
-export function marketList(catalog, snapshot, { rarities = null, tab = 'up', window = 7, minCents = 0, dealRatio = 0.85, limit = 100 }) {
+/**
+ * Liste du marché : hausses, baisses ou bonnes affaires.
+ * Bonnes affaires (`deal`) : "low30" / "low90" = au plus bas depuis 30 / 90 jours (lowestSince, calculé à
+ * l'ingestion), triées par écart à la médiane de la période ; "avg" = moyenne 7 j sous la moyenne 30 j × dealRatio.
+ */
+export function marketList(catalog, snapshot, { rarities = null, tab = 'up', window = 7, minCents = 0, dealRatio = 0.85, deal = 'avg', limit = 100 }) {
   const col = window === 30 ? COL.d30 : COL.d7;
   const out = [];
   for (const card of catalog.cards) {
@@ -36,7 +40,11 @@ export function marketList(catalog, snapshot, { rarities = null, tab = 'up', win
     const trend = priceOf(row);
     if (trend === null || trend < minCents) continue;
     let change;
-    if (tab === 'deals') {
+    if (tab === 'deals' && deal !== 'avg') {
+      const days = deal === 'low90' ? 90 : 30;
+      if (!(row[COL.lowDays] >= days)) continue;
+      change = row[COL.lowGap];
+    } else if (tab === 'deals') {
       const avg30 = row[COL.avg30];
       if (!avg30 || trend > avg30 * dealRatio) continue;
       change = round1(((trend - avg30) / avg30) * 100);

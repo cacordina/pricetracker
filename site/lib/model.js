@@ -3,7 +3,8 @@
 
 export const RARITY_LABEL = { AR: 'AR', SAR: 'SAR', promo: 'Promo', secret: 'Secrète', regular: '', unknown: '' };
 // Colonnes d'une ligne de l'instantané.
-export const COL = { trend: 0, low: 1, avg1: 2, avg7: 3, avg30: 4, d7: 5, d30: 6 };
+// lowDays / lowGap : « au plus bas depuis N jours » et écart à la médiane de la période (voir lowestSince).
+export const COL = { trend: 0, low: 1, avg1: 2, avg7: 3, avg30: 4, d7: 5, d30: 6, lowDays: 7, lowGap: 8 };
 
 /**
  * Prix retenu partout (site, historique, alertes) : la moyenne des ventes sur 7 jours, plus fiable que la

@@ -79,23 +79,18 @@ export function collectionGain(holdings, snapshot) {
   return { paidCents, valueCents, gainCents, pct: count && paidCents ? round1((gainCents / paidCents) * 100) : null, count, missing, unpriced };
 }
 
-const MIN_POINTS_LOW30 = 14;
-
-/** Statut d'une envie par rapport à son prix cible et à l'historique récent. */
-export function wishStatus(wish, row, history) {
+/**
+ * Statut d'une envie : par rapport à son prix cible, et « au plus bas depuis N jours » (lowDays, calculé à
+ * l'ingestion sur l'historique : voir lowestSince).
+ */
+export function wishStatus(wish, row) {
   const trend = priceOf(row);
   const target = wish.target_cents ?? null;
   const gapCents = trend !== null && target !== null ? trend - target : null;
-  let low30 = false;
-  const series = history?.cards?.[wish.id_product]?.p;
-  if (trend !== null && series) {
-    const recent = series.slice(-30).filter((v) => v !== null && v !== undefined);
-    low30 = recent.length >= MIN_POINTS_LOW30 && trend <= Math.min(...recent);
-  }
   return {
     underTarget: gapCents !== null && gapCents <= 0,
     gapCents,
-    low30,
+    lowDays: row?.[COL.lowDays] ?? null,
     rising: (row?.[COL.d7] ?? 0) > 3,
   };
 }

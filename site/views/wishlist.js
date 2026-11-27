@@ -1,5 +1,4 @@
 // Écran Envies : cartes convoitées, celles passées sous leur prix cible en tête.
-import { loadHistories } from '../lib/data.js';
 import { COL, priceOf } from '../lib/model.js';
 import { formatEuro } from '../lib/format.js';
 import { wishStatus, sortWishes } from '../lib/collection.js';
@@ -22,12 +21,10 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     return;
   }
 
-  const known = wishes.map((w) => catalog.byId.get(w.id_product)).filter(Boolean);
-  const histories = await loadHistories(known.map((c) => c.s));
   const items = sortWishes(wishes.map((wish) => {
     const card = catalog.byId.get(wish.id_product) ?? null;
     const row = snapshot.cards[wish.id_product];
-    return { wish, card, row, status: wishStatus(wish, row, card ? histories[card.s] : null) };
+    return { wish, card, row, status: wishStatus(wish, row) };
   }));
   const under = items.filter((i) => i.status.underTarget).length;
 
@@ -49,7 +46,7 @@ export async function render(root, { catalog, snapshot, store, refresh }) {
     }
     const tags = [
       status.underTarget ? '<span class="tag">Sous la cible</span>' : '',
-      status.low30 ? '<span class="tag">Au plus bas sur 30 j</span>' : '',
+      status.lowDays ? `<span class="tag">Au plus bas ${status.lowDays} j</span>` : '',
       status.rising && !status.underTarget ? '<span class="tag warn">En hausse</span>' : '',
     ].join(' ');
     const sub = wish.target_cents === null

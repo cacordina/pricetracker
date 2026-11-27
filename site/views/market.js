@@ -6,7 +6,9 @@ import { cardRow, chips, onChip, loadPrefs, savePrefs, esc, exploreTabs } from '
 import { frDate } from '../lib/chart.js';
 import { filterPanel, trackPanel } from '../lib/cardgrid.js';
 
-const DEFAULTS = { rarities: ['AR', 'SAR'], tab: 'up', window: 7, minEuros: 10, dealPct: 15, usPct: 20 };
+const DEFAULTS = { rarities: ['AR', 'SAR'], tab: 'up', window: 7, minEuros: 10, dealPct: 15, usPct: 20, deal: 'low30' };
+// Bonnes affaires : au plus bas sur l'historique du site (le plus fiable), ou moyenne 7 j sous la moyenne 30 j.
+const DEAL_KIND_CHIPS = [{ value: 'low30', label: 'Au plus bas 30 j' }, { value: 'low90', label: 'Au plus bas 90 j' }, { value: 'avg', label: 'Sous la moyenne 30 j' }];
 const RARITY_CHIPS = [{ value: 'AR', label: 'AR' }, { value: 'SAR', label: 'SAR' }, { value: 'secret', label: 'Secrètes' }, { value: 'promo', label: 'Promos' }, { value: 'all', label: 'Tout' }];
 const TAB_CHIPS = [{ value: 'up', label: 'Hausses' }, { value: 'down', label: 'Baisses' }, { value: 'deals', label: 'Bonnes affaires' }, { value: 'us', label: 'Écart US' }];
 const US_CHIPS = [10, 20, 40].map((v) => ({ value: String(v), label: `+${v} % ou plus` }));
@@ -27,15 +29,19 @@ export async function render(root, { catalog, snapshot }) {
       ? cheaperInEurope(catalog, snapshot, us, { rarities: prefs.rarities, minCents: prefs.minEuros * 100, minGap: prefs.usPct })
       : marketList(catalog, snapshot, {
         rarities: prefs.rarities, tab: prefs.tab, window: prefs.window,
-        minCents: prefs.minEuros * 100, dealRatio: 1 - prefs.dealPct / 100,
+        minCents: prefs.minEuros * 100, dealRatio: 1 - prefs.dealPct / 100, deal: prefs.deal,
       });
+    // « Au plus bas » demande 30 (ou 90) jours d'historique : en attendant, on le dit, avec la date.
+    const lowDays = prefs.deal === 'low90' ? 90 : 30;
+    const lowWaiting = prefs.tab === 'deals' && prefs.deal !== 'avg' && !snapshot.lowReady?.[lowDays];
+    const readyOn = snapshot.since ? new Date(Date.parse(`${snapshot.since}T00:00:00Z`) + (lowDays - 3) * 86400000).toISOString().slice(0, 10) : null;
     const approx = prefs.tab !== 'deals' && prefs.tab !== 'us' && snapshot.approx?.[prefs.window === 30 ? 'd30' : 'd7'];
     const empty = approx
       ? 'Pas encore de variation calculée.'
       : prefs.tab === 'us'
       ? 'Aucune carte avec un tel écart avec ces filtres.'
       : prefs.tab === 'deals'
-      ? 'Aucune bonne affaire avec ces filtres.'
+      ? (lowWaiting ? 'Pas encore assez d’historique.' : 'Aucune bonne affaire avec ces filtres.')
       : `Aucune ${prefs.tab === 'up' ? 'hausse' : 'baisse'} avec ces filtres.`;
     root.innerHTML = `
       ${exploreTabs('marche')}
@@ -46,11 +52,15 @@ export async function render(root, { catalog, snapshot }) {
         prefs.tab === 'us'
           ? { key: 'us', label: 'TCGplayer (en euros) plus cher que Cardmarket d’au moins', options: US_CHIPS, value: String(prefs.usPct) }
           : prefs.tab === 'deals'
-          ? { key: 'deal', label: 'Moyenne 7 j sous la moyenne 30 j d’au moins', options: DEAL_CHIPS, value: String(prefs.dealPct) }
+          ? { key: 'dealKind', label: 'Critère', options: DEAL_KIND_CHIPS, value: prefs.deal }
           : { key: 'window', label: 'Période', options: WINDOW_CHIPS, value: String(prefs.window) },
+        ...(prefs.tab === 'deals' && prefs.deal === 'avg'
+          ? [{ key: 'deal', label: 'Moyenne 7 j sous la moyenne 30 j d’au moins', options: DEAL_CHIPS, value: String(prefs.dealPct) }] : []),
         { key: 'rarity', label: 'Rareté', options: RARITY_CHIPS, value: all ? 'all' : prefs.rarities },
         { key: 'min', label: 'Prix minimum', options: MIN_CHIPS, value: String(prefs.minEuros) },
       ], { open: panel.open })}
+      ${prefs.tab === 'deals' && prefs.deal !== 'avg' ? `<div class="muted" style="font-size:13px">Cartes dont le prix est le plus bas depuis ${lowDays} jours et nettement sous leur médiane sur la période ; écart à cette médiane à droite.</div>` : ''}
+      ${lowWaiting ? `<div class="banner">Ce critère demande ${lowDays} jours d’historique${readyOn ? ` : disponible vers le ${esc(frDate(readyOn))}` : ''}. En attendant, choisissez « Sous la moyenne 30 j » dans les filtres.</div>` : ''}
       ${approx ? `<div class="banner">Les variations sur ${prefs.window} jours apparaîtront après ${prefs.window} jours de relevés de la moyenne des ventes 7 j (prix suivi par le site depuis le changement). En attendant, voyez les bonnes affaires.</div>` : ''}
       ${list.length
         ? list.map(({ card, trend, change, usEur }) => cardRow(card, catalog.sets, { trend, change, ...(usEur !== undefined ? { sub: `TCGplayer ≈ ${formatEuro(usEur)}` } : {}) })).join('')
@@ -70,6 +80,7 @@ export async function render(root, { catalog, snapshot }) {
     else if (group === 'window') prefs.window = Number(value);
     else if (group === 'min') prefs.minEuros = Number(value);
     else if (group === 'deal') prefs.dealPct = Number(value);
+    else if (group === 'dealKind') prefs.deal = value;
     else if (group === 'us') prefs.usPct = Number(value);
     savePrefs('market', prefs);
     draw();

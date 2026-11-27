@@ -25,7 +25,9 @@ export async function render(root, { catalog, snapshot, store }) {
 
   const movers = (tab) => marketList(catalog, snapshot, { rarities: ['AR', 'SAR'], tab, window: 7, minCents: 500, limit: 12 });
   const ups = movers('up');
-  const deals = movers('deals');
+  // Bonnes affaires : au plus bas depuis 30 jours dès que l'historique le permet, sinon sous la moyenne 30 jours.
+  const lowReady = Boolean(snapshot.lowReady?.[30]);
+  const deals = marketList(catalog, snapshot, { rarities: ['AR', 'SAR'], tab: 'deals', deal: lowReady ? 'low30' : 'avg', minCents: 500, limit: 12 });
 
   root.innerHTML = `
     ${hero()}
@@ -38,7 +40,7 @@ export async function render(root, { catalog, snapshot, store }) {
     ${wishBlock()}
     ${movesBlock()}
     ${strip('Hausses AR et SAR sur 7 jours', ups, 'Aucune hausse notable aujourd’hui.')}
-    ${strip('Sous leur moyenne 30 jours', deals, 'Aucune bonne affaire aujourd’hui.')}
+    ${strip(lowReady ? 'Au plus bas depuis 30 jours' : 'Sous leur moyenne 30 jours', deals, 'Aucune bonne affaire aujourd’hui.')}
     ${doneBlock()}
     <p class="muted" style="text-align:center;margin-top:26px">Prix Cardmarket du ${esc(frDate(snapshot.date))}</p>`;
 
@@ -77,7 +79,7 @@ export async function render(root, { catalog, snapshot, store }) {
     const under = sortWishes(wishes
       .map((wish) => ({ wish, card: catalog.byId.get(wish.id_product), row: snapshot.cards[wish.id_product] }))
       .filter((i) => i.card)
-      .map((i) => ({ ...i, status: wishStatus(i.wish, i.row, null) })))
+      .map((i) => ({ ...i, status: wishStatus(i.wish, i.row) })))
       .filter((i) => i.status.underTarget);
     if (!under.length) return '';
     return `<div class="section-head"><h2>Sous votre prix cible</h2><a class="link" href="#/envies">Mes envies</a></div>
