@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { colorHash, nearest, RECORD, HASH_BYTES, RECOGNITION_THRESHOLD } from '../site/lib/fingerprint.js';
 import { decode } from './build-fingerprints.mjs';
+import { degradations } from './lib/degrade.mjs';
 
 const { values } = parseArgs({ options: {
   data: { type: 'string', default: 'data' }, cache: { type: 'string', default: '.images' },
@@ -41,43 +42,7 @@ const FILTERS = [
   { name: 'numéro/total', only: groups((c) => `${c.n}/${printedTotal(c)}`) },
 ];
 
-// Abîmer une image comme une photo. Chaque transformation renvoie une image encodée (PNG ou JPEG) pour sharp.
-const raw = async (pipeline) => pipeline.raw().toBuffer({ resolveWithObject: true });
-const fromRaw = ({ data, info }) => sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } });
-async function rotate(buf, deg) {
-  const { width, height } = await sharp(buf).metadata();
-  const r = await raw(sharp(buf).rotate(deg, { background: '#303030' }));
-  const left = Math.floor((r.info.width - width) / 2), top = Math.floor((r.info.height - height) / 2);
-  return fromRaw(r).extract({ left, top, width, height });
-}
-async function margin(img, pct) {
-  const buf = await img.png().toBuffer();
-  const { width, height } = await sharp(buf).metadata();
-  const dx = Math.round(width * pct), dy = Math.round(height * pct);
-  return sharp(buf).extend({ left: dx, right: dx, top: dy, bottom: dy, background: '#202020' });
-}
-async function crop(buf, pct) {
-  const { width, height } = await sharp(buf).metadata();
-  const dx = Math.round(width * pct), dy = Math.round(height * pct);
-  return sharp(buf).extract({ left: dx, top: dy, width: width - 2 * dx, height: height - 2 * dy });
-}
-const warm = (img) => img.linear([1.12, 1, 0.85], [0, 0, 0]);
-const DEGRADATIONS = [
-  { name: 'image d’origine', make: (b) => sharp(b) },
-  { name: 'flou', make: (b) => sharp(b).blur(1.5) },
-  { name: 'sombre (−35 %)', make: (b) => sharp(b).modulate({ brightness: 0.65 }) },
-  { name: 'claire (+35 %)', make: (b) => sharp(b).modulate({ brightness: 1.35 }) },
-  { name: 'teinte chaude', make: (b) => warm(sharp(b)) },
-  { name: 'petite et compressée', make: async (b) => sharp(await sharp(b).resize({ width: 90 }).jpeg({ quality: 35 }).toBuffer()) },
-  { name: 'rotation 3°', make: (b) => rotate(b, 3) },
-  { name: 'marge 5 %', make: (b) => margin(sharp(b), 0.05) },
-  { name: 'rognée 4 %', make: (b) => crop(b, 0.04) },
-  { name: 'photo (tout à la fois)', make: async (b) => {
-    const img = await margin(await rotate(b, 2), 0.03);
-    const step = await warm(img.modulate({ brightness: 0.8 })).blur(1).resize({ width: 600 }).jpeg({ quality: 60 }).toBuffer();
-    return sharp(step);
-  } },
-];
+const DEGRADATIONS = degradations(sharp);
 
 // Échantillon fixe (graine constante) parmi les cartes indexées dont l'image est en cache.
 const cached = new Set((await readdir(values.cache)).filter((f) => /-0\.\w+$/.test(f)).map((f) => f));

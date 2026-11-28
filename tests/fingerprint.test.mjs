@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   HASH_BITS, HASH_BYTES, RECORD, boxDownscale, computeDCT, colorHash, hashToString, hamming, encodeIndex, nearest, confidence,
+  trimBorders, cropRGBA, thumbnail, thumbnailDistance,
 } from '../site/lib/fingerprint.js';
 
 /** Image RGBA fabriquée : formes et couleurs tirées d'une graine (une « carte »), plus des retouches. */
@@ -70,4 +71,35 @@ test('index : la carte se retrouve en tête, filtre par identifiants', () => {
   assert.equal(nearest(index, hash(card(23)))[0].confidence, 100);
   assert.deepEqual(nearest(index, hash(card(23)), { only: new Set([1000, 1003]) }).map((r) => r.id).sort(), [1000, 1003]);
   assert.equal(confidence(21), 80);
+});
+
+test('recadrage : la photo et l’image du catalogue arrivent au même cadre', () => {
+  // Carte 63×88 : bord jaune de 4 pixels, puis un intérieur varié (bandes de couleurs) ; sur une table grise (marge m).
+  const draw = (W, H, m) => {
+    const px = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const cx = x - m, cy = y - m;
+      const inCard = cx >= 0 && cx < 63 && cy >= 0 && cy < 88;
+      const inner = cx >= 4 && cx < 59 && cy >= 4 && cy < 84;
+      const c = !inCard ? [90, 90, 90] : !inner ? [240, 200, 40] : [[200, 60, 60], [30, 60, 200], [20, 160, 70]][(cx + cy) % 3];
+      px.set([...c, 255], (y * W + x) * 4);
+    }
+    return px;
+  };
+  const abs = (r, W, H, m) => [r.x * W - m, r.y * H - m, r.w * W, r.h * H].map(Math.round);
+  const photo = abs(trimBorders(draw(83, 108, 10), 83, 108), 83, 108, 10);
+  const scan = abs(trimBorders(draw(63, 88, 0), 63, 88), 63, 88, 0);
+  assert.deepEqual(photo, scan);
+  assert.deepEqual(scan, [4, 4, 55, 80]); // sans le bord jaune
+  // Bande qui n'a pas les proportions d'une carte : rien n'est rogné.
+  const px = draw(83, 108, 10);
+  const wide = cropRGBA(px, 83, 108, { x: 0, y: 0.3, w: 1, h: 0.4 });
+  assert.deepEqual(trimBorders(wide.rgba, wide.width, wide.height), { x: 0, y: 0, w: 1, h: 1 });
+});
+
+test('vignette : insensible à la luminosité', () => {
+  const a = card(7), b = card(7, { light: 30 }), c = card(11);
+  const ta = thumbnail(a.px, a.w, a.h);
+  assert.ok(thumbnailDistance(ta, thumbnail(b.px, b.w, b.h)) < 0.05);
+  assert.ok(thumbnailDistance(ta, thumbnail(c.px, c.w, c.h)) > 0.5);
 });

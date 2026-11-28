@@ -9,6 +9,8 @@ on:
       - site/lib/fingerprint.js
       - scripts/build-fingerprints.mjs
       - scripts/measure-fingerprints.mjs
+      - scripts/experiment-fingerprints.mjs
+      - scripts/lib/degrade.mjs
       - .github/workflows/fingerprints.yml
   workflow_dispatch:
     inputs:
@@ -48,6 +50,20 @@ jobs:
         run: |
           node scripts/measure-fingerprints.mjs --data data --cache .images --out out --sample "$SAMPLE"
           cat out/measure.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Comparer les variantes sans numéro
+        run: |
+          node scripts/experiment-fingerprints.mjs --data data --cache .images --out out --sample 600
+          cat out/experiment.md >> "$GITHUB_STEP_SUMMARY"
+      # Le second tri lit les pixels des images des cartes sur le téléphone : il faut que leurs serveurs l'autorisent.
+      - name: Images lisibles depuis le site (CORS)
+        run: |
+          {
+            echo '## CORS des images'
+            for url in https://assets.tcgdex.net/ja/SV/SV2a/001/low.webp https://tcgplayer-cdn.tcgplayer.com/product/496157_200w.jpg; do
+              echo "- $url : $(curl -sI -H 'Origin: https://cacordina.github.io' "$url" | grep -i '^access-control-allow-origin' | tr -d '\r' || true)"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          tail -3 "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: fingerprints
