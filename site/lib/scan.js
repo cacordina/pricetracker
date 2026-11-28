@@ -1,5 +1,6 @@
 // Interprétation du texte lu au bas d'une carte : « SV8a 212/187 SAR » → cartes candidates du catalogue.
 // Fonctions pures (testées avec node --test) ; la lecture de l'image elle-même est dans ocr.js.
+import { scanHash, nearest, cropRGBA } from './fingerprint.js';
 
 const fixDigits = (text) => text.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1');
 const key = (n) => (/^\d+$/.test(n) ? String(Number(n)) : String(n).toLowerCase());
@@ -201,4 +202,27 @@ export function checkWithNumber(shownIds, readIds, rankedRead = [], { maxDistanc
   const best = rankedRead[0];
   if (best && best.distance <= maxDistance) return { ids: [best.id, ...shownIds.filter((id) => id !== best.id)], status: 'corrected' };
   return { ids: shownIds, status: 'unread' };
+}
+
+// ---------- Cadre de visée ----------
+// Dans l'aperçu de la caméra (aux proportions d'une carte), le cadre où placer la carte, en fractions de l'aperçu.
+export const GUIDE = { x: 0.1, y: 0.1, w: 0.8, h: 0.8 };
+// Personne ne place la carte exactement sur le cadre : plusieurs découpages autour du cadre (un peu plus large, pile,
+// un peu et nettement à l'intérieur) sont comparés au catalogue, et le meilleur est retenu. Le fond visible autour de
+// la carte (table, main) éloigne beaucoup l'empreinte de celle de la carte : mieux vaut couper un peu dans la carte.
+export const CROPS = [0.02, 0, -0.02, -0.04].map((m) => ({ x: GUIDE.x - m, y: GUIDE.y - m, w: GUIDE.w + 2 * m, h: GUIDE.h + 2 * m }));
+
+/**
+ * Image de l'aperçu (RGBA) → { hash, top } du découpage dont la carte la plus proche l'est le plus (`top` :
+ * [{ id, distance }], la plus proche d'abord). `crops` : découpages à essayer ([{ x, y, w, h }] en fractions).
+ */
+export function lookFrame(index, rgba, width, height, crops = CROPS) {
+  let best = null;
+  for (const rect of crops) {
+    const part = cropRGBA(rgba, width, height, rect);
+    const hash = scanHash(part.rgba, part.width, part.height);
+    const top = nearest(index, hash, { limit: 8 });
+    if (!best || (top[0] && (!best.top[0] || top[0].distance < best.top[0].distance))) best = { hash, top };
+  }
+  return best;
 }

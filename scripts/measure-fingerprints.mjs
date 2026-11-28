@@ -9,7 +9,7 @@ import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { scanHash, nearest, RECORD, SCAN_BYTES, SCAN_BITS, SCAN_MAX_DISTANCE, SCAN_MIN_GAP } from '../site/lib/fingerprint.js';
-import { acceptMatch } from '../site/lib/scan.js';
+import { acceptMatch, lookFrame } from '../site/lib/scan.js';
 import { decode } from './build-fingerprints.mjs';
 import { degradations } from './lib/degrade.mjs';
 
@@ -186,10 +186,69 @@ for (const f of FILTERS.map((x) => x.name)) {
   }
   lines.push('');
 }
+// ---------- Scènes caméra : le pipeline du téléphone ----------
+// L'aperçu (aux proportions d'une carte) montre la carte posée dans le cadre de visée, sur un fond texturé (bois,
+// tissu, dégradé), à une taille et un angle variables, avec lumière, teinte, flou et compression ; puis lookFrame
+// (plusieurs découpages autour du cadre), comme sur le téléphone. Sans carte : fond seul, produit scellé dans le cadre.
+const FW = 375, FH = Math.round(FW * 88 / 63);
+function texture() {
+  const px = Buffer.alloc(FW * FH * 3);
+  const kind = Math.floor(rnd() * 3), base = [rnd() * 200 + 30, rnd() * 200 + 30, rnd() * 200 + 30], f = 4 + rnd() * 12, g = rnd() * 6;
+  for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
+    const n = (rnd() - 0.5) * 30;
+    const v = kind === 0 ? 30 * Math.sin(x / f + Math.sin(y / 40) * g) : kind === 1 ? 25 * Math.sign(Math.sin(x / f) * Math.sin(y / f)) : 60 * (y / FH - 0.5);
+    px.set(base.map((b) => Math.max(0, Math.min(255, Math.round(b + v + n)))), (y * FW + x) * 3);
+  }
+  return sharp(px, { raw: { width: FW, height: FH, channels: 3 } });
+}
+async function scene(buf) {
+  const scale = 0.7 + rnd() * 0.16, angle = (rnd() - 0.5) * 10;
+  const cw = Math.round(FW * scale), chh = Math.round(cw * 88 / 63);
+  const card = await sharp(buf).resize(cw, chh, { fit: 'fill' }).rotate(angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+  const m = await sharp(card).metadata();
+  const left = Math.round((FW - m.width) / 2 + (rnd() - 0.5) * FW * 0.04), top = Math.round((FH - m.height) / 2 + (rnd() - 0.5) * FH * 0.04);
+  let img = (await texture()).composite([{ input: card, left: Math.max(0, left), top: Math.max(0, top) }]);
+  img = sharp(await img.png().toBuffer()).modulate({ brightness: 0.75 + rnd() * 0.45 });
+  if (rnd() < 0.5) img = img.linear([1 + rnd() * 0.15, 1, 1 - rnd() * 0.15], [0, 0, 0]);
+  if (rnd() < 0.5) img = img.blur(0.5 + rnd());
+  return sharp(await img.jpeg({ quality: 60 }).toBuffer());
+}
+async function look(img) {
+  const { rgba, width, height } = await decode(sharp, await img.png().toBuffer());
+  return lookFrame(index, rgba, width, height).top;
+}
+const camPos = [];
+for (const r of sample.slice(0, 600)) camPos.push({ id: r.id, top: await look(await scene(await readFile(join(values.cache, fileOf(r.id))))) });
+const camNeg = [];
+for (let k = 0; k < 150; k++) camNeg.push({ kind: 'table seule', top: await look(await texture()) });
+for (const box of boxes) {
+  try { camNeg.push({ kind: 'produit scellé', top: await look(await scene(await readFile(join(values.cache, `box-${box}.jpg`)))) }); } catch { /* absente */ }
+}
+console.log(`scènes caméra : ${camPos.length} cartes, ${camNeg.length} sans carte (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+const camGrid = [];
+for (const maxDistance of [70, 75, 80, 85, 90, 95, 100]) {
+  for (const minGap of [12, 16, 20, 24, 28]) {
+    const rule = { maxDistance, minGap };
+    const acc = camPos.filter((q) => acceptMatch(q.top, rule));
+    const right = acc.filter((q) => q.top.slice(0, 3).some((r) => r.id === q.id)).length;
+    const fp = Object.fromEntries(['table seule', 'produit scellé'].map((kind) => {
+      const list = camNeg.filter((q) => q.kind === kind);
+      return [kind, list.length ? list.filter((q) => acceptMatch(q.top, rule)).length / list.length : null];
+    }));
+    camGrid.push({ maxDistance, minGap, accepted: acc.length / camPos.length, right: acc.length ? right / acc.length : null, fp });
+  }
+}
+const camTop1 = camPos.filter((q) => q.top[0]?.id === q.id).length / camPos.length;
+const camTop3 = camPos.filter((q) => q.top.slice(0, 3).some((r) => r.id === q.id)).length / camPos.length;
+
 lines.push('## Règle d’acceptation du scanner', '',
   `Vraies cartes : ${posTop.length} (photo, sombre, claire, rotation, petite, seconde image). Autres images : ${negTop.length}. Réglage actuel : distance ≤ ${SCAN_MAX_DISTANCE}, écart ≥ ${SCAN_MIN_GAP}.`,
   'reconnues : part des vraies cartes acceptées ; bonne parmi les 3 : quand acceptée, la bonne carte est parmi les 3 proposées ; puis part des autres images faussement acceptées.', '',
   '| distance ≤ | écart ≥ | reconnues | bonne parmi les 3 | produit scellé | surface | gros plan |', '|---:|---:|---:|---:|---:|---:|---:|',
   ...grid.map((g) => `| ${g.maxDistance} | ${g.minGap} | ${pct(g.accepted)} | ${pct(g.right)} | ${pct(g.falsePos['produit scellé'])} | ${pct(g.falsePos.surface)} | ${pct(g.falsePos['gros plan'])} |`), '');
+lines.push('## Scènes caméra (pipeline du téléphone)', '',
+  `Cartes posées dans le cadre sur fond texturé : ${camPos.length} ; bonne carte en tête ${pct(camTop1)}, parmi les 3 premières ${pct(camTop3)}. Scènes sans carte : ${camNeg.length}.`, '',
+  '| distance ≤ | écart ≥ | reconnues | bonne parmi les 3 | table seule | produit scellé |', '|---:|---:|---:|---:|---:|---:|',
+  ...camGrid.map((g) => `| ${g.maxDistance} | ${g.minGap} | ${pct(g.accepted)} | ${pct(g.right)} | ${pct(g.fp['table seule'])} | ${pct(g.fp['produit scellé'])} |`), '');
 await writeFile(join(values.out, 'measure.md'), lines.join('\n'));
 console.log(lines.join('\n'));

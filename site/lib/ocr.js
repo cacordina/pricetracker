@@ -104,13 +104,13 @@ export const PASSES = [
 
 /**
  * Lit le bas d'une carte. `cardTop` = fraction de la carte où commence la source : 0 si la source montre
- * la carte entière, 0.75 pour un gros plan sur son quart inférieur. Renvoie un texte par passe.
+ * la carte entière, 0.75 pour un gros plan sur son quart inférieur. `passes` : toutes par défaut. Renvoie un texte par passe.
  */
-export async function readCardPasses(source, { cardTop = 0 } = {}) {
+export async function readCardPasses(source, { cardTop = 0, passes = PASSES } = {}) {
   const worker = await prepare();
   const span = 1 - cardTop;
   const texts = [];
-  for (const pass of PASSES) {
+  for (const pass of passes) {
     const band = { ...pass.band, top: Math.max(0, (pass.band.top - cardTop) / span), bottom: Math.min(1, (pass.band.bottom - cardTop) / span) };
     const canvas = recontrast(cropBand(source, band, pass.height), pass.mode);
     const { data } = await worker.recognize(canvas);

@@ -4,9 +4,11 @@
 //   - le texte : série et numéro imprimés en bas à gauche (OCR, plus lent, pas toujours lisible). Quand il est lu,
 //     il départage les rééditions à l'illustration identique, que l'image seule ne distingue pas.
 // À la première carte reconnue, la caméra s'arrête et affiche la carte, avec les autres possibilités en dessous.
-import { parseScan, mergeScans, createTracker, createEvidence, createImageTracker, preferRead, acceptMatch, checkWithNumber } from '../lib/scan.js';
-import { prepare, readCardPasses } from '../lib/ocr.js';
-import { scanHash, nearest, SCAN_MAX_DISTANCE, SCAN_MIN_GAP, SCAN_MAX_DISTANCE_WITH_NUMBER } from '../lib/fingerprint.js';
+import {
+  parseScan, mergeScans, createTracker, createEvidence, createImageTracker, preferRead, acceptMatch, checkWithNumber, lookFrame, GUIDE, CROPS,
+} from '../lib/scan.js';
+import { prepare, readCardPasses, PASSES } from '../lib/ocr.js';
+import { nearest, SCAN_MAX_DISTANCE, SCAN_MIN_GAP, SCAN_MAX_DISTANCE_WITH_NUMBER } from '../lib/fingerprint.js';
 import { loadFingerprints } from '../lib/data.js';
 import { displayName, priceOf } from '../lib/model.js';
 import { formatEuro } from '../lib/format.js';
@@ -14,45 +16,50 @@ import { cardImg, esc } from '../lib/ui.js';
 
 const CARD_RATIO = 63 / 88;
 
-const IMAGE_WIDTH = 300; // largeur de l'image comparée aux empreintes (celles du catalogue viennent d'images de 200 à 250 px)
+const FRAME_WIDTH = 375; // largeur de l'aperçu analysé : la carte y fait environ 300 px (le catalogue : images de 200 à 250 px)
 const ALTERNATIVES = 2; // autres possibilités affichées sous la carte reconnue
 
-/** Recadre la source aux proportions d'une carte (comme l'aperçu à l'écran) et renvoie un canvas, réduit à `width`. */
-function frameCanvas(source, width = null) {
+/**
+ * Recadre la source aux proportions d'une carte (comme l'aperçu à l'écran), puis à `rect` (fractions de cet aperçu,
+ * par exemple le cadre de visée), et renvoie un canvas, réduit à `width`.
+ */
+function frameCanvas(source, width = null, rect = null) {
   const sw = source.videoWidth || source.naturalWidth || source.width;
   const sh = source.videoHeight || source.naturalHeight || source.height;
   let w = sw;
   let h = Math.round(sw / CARD_RATIO);
   if (h > sh) { h = sh; w = Math.round(sh * CARD_RATIO); }
+  let x = (sw - w) / 2, y = (sh - h) / 2;
+  if (rect) { x += rect.x * w; y += rect.y * h; w = Math.round(rect.w * w); h = Math.round(rect.h * h); }
   const scale = width && width < w ? width / w : 1;
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(w * scale);
   canvas.height = Math.round(h * scale);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(source, Math.round((sw - w) / 2), Math.round((sh - h) / 2), w, h, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(source, Math.round(x), Math.round(y), w, h, 0, 0, canvas.width, canvas.height);
   return canvas;
 }
 
-/** Empreinte de l'image et cartes du catalogue les plus proches : { hash, top: [{ id, distance }] }. */
-function lookImage(index, source) {
-  const canvas = frameCanvas(source, IMAGE_WIDTH);
+/** Empreinte de l'image et cartes du catalogue les plus proches : { hash, top }, voir lookFrame. */
+function lookImage(index, source, crops) {
+  const canvas = frameCanvas(source, FRAME_WIDTH);
   const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-  const hash = scanHash(data, canvas.width, canvas.height);
-  return { hash, top: nearest(index, hash, { limit: 8 }) };
+  return lookFrame(index, data, canvas.width, canvas.height, crops);
 }
 
 /** Les cartes `cards` (qui portent le numéro lu) classées par ressemblance avec l'empreinte : [{ id, distance }]. */
 const rankByImage = (index, hash, cards) => nearest(index, hash, { limit: 12, only: new Set(cards.map((c) => c.id)) });
 
-const HINT = '<div class="muted" style="text-align:center">Présentez la carte entière dans le cadre, bien à plat : elle est reconnue toute seule, sans appuyer.</div>';
+const HINT = '<div class="muted" style="text-align:center">Placez la carte dans le cadre, bord à bord et bien à plat : elle est reconnue toute seule, sans appuyer.</div>';
 
-export async function render(root, { catalog, snapshot, store }) {
+export async function render(root, { catalog, snapshot, store, param }) {
+  const diag = param === 'diag'; // #/scan/diag : distances et cadence affichées en direct, pour régler le scanner
   root.innerHTML = `
     <h1>Scanner</h1>
     <div class="scan-frame" id="frame">
       <video id="video" playsinline muted></video>
-      <div class="scan-zone" aria-hidden="true"></div>
+      <div class="scan-guide" aria-hidden="true"><i></i><i></i><i></i><i></i><div class="scan-zone"></div></div>
       <div class="scan-pill" id="pill" aria-live="polite">Démarrage de la caméra…</div>
       <button type="button" class="scan-torch" id="torch" hidden aria-pressed="false">Lampe</button>
       <div class="scan-toast" id="toast" hidden></div>
@@ -108,7 +115,7 @@ export async function render(root, { catalog, snapshot, store }) {
     }
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false,
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false,
       });
       if (!alive) { stream.getTracks().forEach((t) => t.stop()); return; }
       video.srcObject = stream;
@@ -134,8 +141,9 @@ export async function render(root, { catalog, snapshot, store }) {
   }
 
   // ---------- Lecture en continu ----------
-  async function read(source) {
-    const texts = await readCardPasses(frameCanvas(source), { cardTop: 0 });
+  // `rect` : la carte dans l'image (le cadre de visée pour la caméra) ; `quick` : une seule passe de lecture.
+  async function read(source, { rect = null, quick = false } = {}) {
+    const texts = await readCardPasses(frameCanvas(source, null, rect), { cardTop: 0, passes: quick ? PASSES.slice(0, 1) : PASSES });
     return mergeScans(texts.map((text) => parseScan(text, catalog)));
   }
 
@@ -145,7 +153,7 @@ export async function render(root, { catalog, snapshot, store }) {
     const wait = (ms) => { timer = setTimeout(loop, ms); };
     if (paused || document.hidden || !stream || video.readyState < 2) return wait(400);
     try {
-      const result = evidence.add(await read(video));
+      const result = evidence.add(await read(video, { rect: GUIDE, quick: true }));
       if (!alive || paused) return wait(400);
       lastRead = result.candidates;
       if (result.number) lastNumber = { number: result.number, official: result.official };
@@ -158,7 +166,7 @@ export async function render(root, { catalog, snapshot, store }) {
       if (!index) pill.textContent = `Lecture impossible : ${err.message}`;
       return wait(5000);
     }
-    wait(200);
+    wait(700); // la lecture du texte laisse la main à la reconnaissance par l'image, plus rapide
   }
 
   // Image : rapide, plusieurs fois par seconde.
@@ -169,8 +177,10 @@ export async function render(root, { catalog, snapshot, store }) {
     if (!index) return; // empreintes pas encore publiées : le texte seul
     if (paused || document.hidden || !stream || video.readyState < 2) return wait(300);
     try {
-      const { hash, top } = lookImage(index, video);
+      const t0 = performance.now();
+      const { hash, top } = lookImage(index, video, CROPS);
       lastHash = hash;
+      if (diag) showDiag(top, performance.now() - t0);
       // Numéro déjà lu : l'image n'a plus qu'à choisir parmi les cartes qui le portent, avec un seuil plus souple.
       const ranked = lastRead.length ? rankByImage(index, hash, lastRead) : [];
       if (ranked[0] && ranked[0].distance <= SCAN_MAX_DISTANCE_WITH_NUMBER) {
@@ -185,6 +195,18 @@ export async function render(root, { catalog, snapshot, store }) {
       return wait(2000);
     }
     wait(150);
+  }
+
+  // Mode diagnostic : distance de la carte la plus proche, écart avec la 5e, durée d'analyse et cadence.
+  let frames = [];
+  function showDiag(top, ms) {
+    const now = performance.now();
+    frames = [...frames.filter((t) => now - t < 2000), now];
+    const d = top[0]?.distance ?? '—';
+    const gap = top.length > 4 ? top[4].distance - top[0].distance : '—';
+    const ok = acceptMatch(top, RULE) ? '✓' : '✗';
+    const card = top[0] ? catalog.byId.get(top[0].id) : null;
+    pill.textContent = `${ok} d ${d}/${SCAN_MAX_DISTANCE} · écart ${gap}/${SCAN_MIN_GAP} · ${Math.round(ms)} ms · ${(frames.length / 2).toFixed(1)} img/s${card ? ` · ${card.s} ${card.n}` : ''}`;
   }
 
   const cardsOf = (ids) => ids.map((id) => catalog.byId.get(id)).filter(Boolean);
@@ -204,7 +226,7 @@ export async function render(root, { catalog, snapshot, store }) {
     const shown = current;
     shown.check = 'checking';
     drawResult();
-    const result = await read(source).catch(() => null);
+    const result = await read(source, source === video ? { rect: GUIDE } : {}).catch(() => null);
     if (current !== shown || shown.picked) return; // autre carte entre-temps, ou choix fait à la main
     const ids = [shown.card, ...shown.others].map((c) => c.id);
     const readCards = result?.candidates ?? [];
@@ -323,7 +345,7 @@ export async function render(root, { catalog, snapshot, store }) {
     try {
       await image.decode();
       await indexReady;
-      const look = index ? lookImage(index, image) : { hash: null, top: [] };
+      const look = index ? lookImage(index, image, [{ x: 0, y: 0, w: 1, h: 1 }]) : { hash: null, top: [] };
       lastHash = look.hash;
       // Image et numéro lus ensemble : le numéro confirme ou corrige ce que l'image propose.
       const result = await read(image).catch(() => ({ number: null, candidates: [] }));

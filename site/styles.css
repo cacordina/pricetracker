@@ -223,7 +223,16 @@ p .link, .muted .link { text-decoration: underline; text-underline-offset: 3px; 
 .scan-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .scan-frame.hit { outline-color: var(--up); }
 /* repère discret de la zone lue : série et numéro, en bas à gauche */
-.scan-zone { position: absolute; left: 2%; width: 50%; top: 91.5%; height: 6.5%; border: 2px dashed #f2c14ecc; border-radius: 6px; pointer-events: none; }
+/* cadre de visée : la carte se place dedans ; l'extérieur est assombri */
+.scan-guide { position: absolute; left: 10%; top: 10%; width: 80%; height: 80%; border-radius: 10px; box-shadow: 0 0 0 999px #0f122680; pointer-events: none; }
+.scan-guide i { position: absolute; width: 22%; height: 16%; border: 0 solid var(--gold); }
+.scan-guide i:nth-child(1) { left: -2px; top: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 10px; }
+.scan-guide i:nth-child(2) { right: -2px; top: -2px; border-width: 4px 4px 0 0; border-top-right-radius: 10px; }
+.scan-guide i:nth-child(3) { left: -2px; bottom: -2px; border-width: 0 0 4px 4px; border-bottom-left-radius: 10px; }
+.scan-guide i:nth-child(4) { right: -2px; bottom: -2px; border-width: 0 4px 4px 0; border-bottom-right-radius: 10px; }
+.scan-frame.hit .scan-guide i { border-color: var(--up); }
+/* repère discret de la zone lue (série et numéro, en bas à gauche de la carte) */
+.scan-zone { position: absolute; left: 2%; width: 50%; top: 91.5%; height: 6.5%; border: 2px dashed #f2c14e99; border-radius: 6px; }
 .scan-pill {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%); max-width: 92%;
   background: #0f1226d9; color: #fff; border-radius: 99px; padding: 6px 13px; font-size: 13px; font-weight: 700; text-align: center;
