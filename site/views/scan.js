@@ -4,9 +4,9 @@
 //   - le texte : série et numéro imprimés en bas à gauche (OCR, plus lent, pas toujours lisible). Quand il est lu,
 //     il départage les rééditions à l'illustration identique, que l'image seule ne distingue pas.
 // À la première carte reconnue, la caméra s'arrête et affiche la carte, avec les autres possibilités en dessous.
-import { parseScan, mergeScans, createTracker, createEvidence, createImageTracker, preferRead } from '../lib/scan.js';
+import { parseScan, mergeScans, createTracker, createEvidence, createImageTracker, preferRead, acceptMatch } from '../lib/scan.js';
 import { prepare, readCardPasses } from '../lib/ocr.js';
-import { scanHash, nearest, SCAN_MAX_DISTANCE } from '../lib/fingerprint.js';
+import { scanHash, nearest, SCAN_MAX_DISTANCE, SCAN_MIN_GAP } from '../lib/fingerprint.js';
 import { loadFingerprints } from '../lib/data.js';
 import { displayName, priceOf } from '../lib/model.js';
 import { formatEuro } from '../lib/format.js';
@@ -65,7 +65,8 @@ export async function render(root, { catalog, snapshot, store }) {
 
   const tracker = createTracker();
   const evidence = createEvidence(catalog); // cumule ce qui est lu d'une image à l'autre
-  const imageTracker = createImageTracker({ maxDistance: SCAN_MAX_DISTANCE });
+  const RULE = { maxDistance: SCAN_MAX_DISTANCE, minGap: SCAN_MIN_GAP };
+  const imageTracker = createImageTracker(RULE);
   let index = null; // empreintes du catalogue
   let lastRead = []; // dernières cartes trouvées par le texte lu (OCR)
   let stream = null;
@@ -270,7 +271,7 @@ export async function render(root, { catalog, snapshot, store }) {
       await image.decode();
       await indexReady;
       const top = index ? lookImage(index, image) : [];
-      if (top[0] && top[0].distance <= SCAN_MAX_DISTANCE) {
+      if (acceptMatch(top, RULE)) {
         // Le texte, s'il est lisible, départage les rééditions ; la photo est reconnue même sans.
         const result = await read(image).catch(() => ({ candidates: [] }));
         return detected(preferRead(top.map((r) => r.id), result.candidates).map((id) => catalog.byId.get(id)).filter(Boolean));

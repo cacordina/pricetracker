@@ -149,12 +149,12 @@ export function createTracker({ missesToReset = 3 } = {}) {
  * les suivantes de la dernière image (les autres possibilités). Sinon null. Une carte signalée ne l'est plus tant
  * qu'elle reste en tête ; reset() pour la carte suivante.
  */
-export function createImageTracker({ frames = 4, need = 3, maxDistance }) {
+export function createImageTracker({ frames = 4, need = 3, ...rule }) {
   let recent = [];
   let reported = null;
   return {
     push(top) {
-      const first = top[0] && top[0].distance <= maxDistance ? top[0].id : null;
+      const first = acceptMatch(top, rule) ? top[0].id : null;
       recent = [...recent, first].slice(-frames);
       if (first === null) { if (recent.every((id) => id === null)) reported = null; return null; }
       if (first === reported) return null;
@@ -164,6 +164,18 @@ export function createImageTracker({ frames = 4, need = 3, maxDistance }) {
     },
     reset() { recent = []; reported = null; },
   };
+}
+
+/**
+ * L'image montre-t-elle la première carte de `top` ? Elle doit être assez proche (maxDistance) et se détacher des
+ * autres : au moins `minGap` bits de mieux que la candidate de rang `gapRank` (la 5e par défaut, pas la 2e : deux
+ * rééditions de la même illustration sont toujours à égalité). Devant une table ou un objet, toutes les cartes du
+ * catalogue sont à peu près aussi loin : rien ne se détache.
+ */
+export function acceptMatch(top, { maxDistance, minGap = 0, gapRank = 4 }) {
+  if (!top.length || top[0].distance > maxDistance) return false;
+  const ref = top[Math.min(gapRank, top.length - 1)];
+  return top.length === 1 || ref.distance - top[0].distance >= minGap;
 }
 
 /** Ordre des propositions : celles dont le numéro a été lu (OCR) passent devant, sans changer l'ordre sinon. */

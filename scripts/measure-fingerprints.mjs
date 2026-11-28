@@ -8,7 +8,8 @@
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { scanHash, nearest, RECORD, SCAN_BYTES, SCAN_BITS, SCAN_MAX_DISTANCE } from '../site/lib/fingerprint.js';
+import { scanHash, nearest, RECORD, SCAN_BYTES, SCAN_BITS, SCAN_MAX_DISTANCE, SCAN_MIN_GAP } from '../site/lib/fingerprint.js';
+import { acceptMatch } from '../site/lib/scan.js';
 import { decode } from './build-fingerprints.mjs';
 import { degradations } from './lib/degrade.mjs';
 
@@ -83,6 +84,8 @@ function score(queries) {
 }
 
 const rows = [];
+const positives = []; // requêtes réalistes, pour régler la règle d'acceptation
+const POSITIVE = ['photo', 'dark', 'light', 'rotate', 'small'];
 const t0 = Date.now();
 for (const d of DEGRADATIONS) {
   const queries = [];
@@ -92,11 +95,78 @@ for (const d of DEGRADATIONS) {
     const { rgba, width, height } = await decode(sharp, await img.png().toBuffer());
     queries.push({ id: r.id, hash: scanHash(rgba, width, height) });
   }
+  if (POSITIVE.includes(d.key)) positives.push(...queries.map((q) => ({ ...q, kind: d.name })));
   rows.push({ name: d.name, count: queries.length, results: score(queries) });
   console.log(`${d.name} : ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 }
 const altQueries = records(alt);
 rows.push({ name: 'seconde image (autre source)', count: altQueries.length, results: score(altQueries) });
+positives.push(...altQueries.map((q) => ({ ...q, kind: 'seconde image' })));
+
+// ---------- Images qui ne sont pas des cartes : le scanner ne doit rien reconnaître ----------
+// Photos des produits scellés (boîtes, boosters : TCGplayer), surfaces (tables, feuille, main), gros plans sur une
+// partie de carte (téléphone trop près : il ne faut pas annoncer une autre carte).
+const negatives = [];
+const boxes = [...new Set(Object.values(catalog.sets).map((x) => x.box).filter(Boolean))];
+for (const box of boxes) {
+  const file = join(values.cache, `box-${box}.jpg`);
+  let buf = null;
+  try { buf = await readFile(file); } catch {
+    try {
+      const res = await fetch(`https://tcgplayer-cdn.tcgplayer.com/product/${box}_200w.jpg`, { headers: { 'user-agent': 'jp-card-price-tracker' } });
+      if (res.ok) { buf = Buffer.from(await res.arrayBuffer()); await writeFile(file, buf); }
+    } catch { /* image indisponible */ }
+  }
+  if (!buf) continue;
+  for (const d of DEGRADATIONS.filter((x) => ['origin', 'photo'].includes(x.key))) {
+    try {
+      const { rgba, width, height } = await decode(sharp, await (await d.make(buf)).png().toBuffer());
+      negatives.push({ kind: 'produit scellé', hash: scanHash(rgba, width, height) });
+    } catch { /* illisible */ }
+  }
+}
+for (let k = 0; k < 120; k++) {
+  // Surface : couleur de fond, dégradé, grain, éventuellement un objet sombre ou clair au milieu.
+  const w = 240, h = 335, px = Buffer.alloc(w * h * 3);
+  const base = [rnd() * 255, rnd() * 255, rnd() * 255], tilt = [rnd() - 0.5, rnd() - 0.5, rnd() - 0.5].map((v) => v * 120);
+  const blob = rnd() < 0.5 ? { x: rnd() * w, y: rnd() * h, r: 30 + rnd() * 90, c: [rnd() * 255, rnd() * 255, rnd() * 255] } : null;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const t = y / h, n = (rnd() - 0.5) * 30;
+    let c = base.map((b, i) => b + tilt[i] * t + n);
+    if (blob && (x - blob.x) ** 2 + (y - blob.y) ** 2 < blob.r ** 2) c = blob.c.map((v) => v + n);
+    px.set(c.map((v) => Math.max(0, Math.min(255, Math.round(v)))), (y * w + x) * 3);
+  }
+  const { rgba, width, height } = await decode(sharp, await sharp(px, { raw: { width: w, height: h, channels: 3 } }).png().toBuffer());
+  negatives.push({ kind: 'surface', hash: scanHash(rgba, width, height) });
+}
+for (const r of sample.slice(0, 300)) {
+  const buf = await readFile(join(values.cache, fileOf(r.id)));
+  const { width, height } = await sharp(buf).metadata();
+  // Un quart de la carte (illustration ou bas de carte), agrandi.
+  const left = Math.round(width * (0.1 + rnd() * 0.4)), top = Math.round(height * (0.1 + rnd() * 0.45));
+  const part = sharp(buf).extract({ left, top, width: Math.round(width * 0.45), height: Math.round(height * 0.45) }).resize({ width: 300 });
+  const { rgba, width: pw, height: ph } = await decode(sharp, await part.png().toBuffer());
+  negatives.push({ kind: 'gros plan', id: r.id, hash: scanHash(rgba, pw, ph) });
+}
+console.log(`${negatives.length} images qui ne sont pas des cartes : ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+
+// Règle d'acceptation : part des vraies cartes reconnues, part où la bonne carte est alors parmi les 3 proposées,
+// part des autres images faussement reconnues. Une image à la fois : le scanner exige en plus 3 images sur 4.
+const posTop = positives.map((q) => ({ ...q, top: nearest(index, q.hash, { limit: 8 }) }));
+const negTop = negatives.map((q) => ({ ...q, top: nearest(index, q.hash, { limit: 8 }) }));
+const grid = [];
+for (const maxDistance of [55, 60, 65, 70, 75, 80]) {
+  for (const minGap of [0, 6, 10, 12, 14, 18]) {
+    const rule = { maxDistance, minGap };
+    const acc = posTop.filter((q) => acceptMatch(q.top, rule));
+    const shownRight = acc.filter((q) => q.top.slice(0, 3).some((r) => r.id === q.id)).length;
+    const falsePos = Object.fromEntries(['produit scellé', 'surface', 'gros plan'].map((kind) => {
+      const list = negTop.filter((q) => q.kind === kind);
+      return [kind, list.length ? list.filter((q) => acceptMatch(q.top, rule)).length / list.length : null];
+    }));
+    grid.push({ maxDistance, minGap, accepted: acc.length / posTop.length, right: acc.length ? shownRight / acc.length : null, falsePos });
+  }
+}
 
 const pct = (x) => (x === null ? '—' : `${(x * 100).toFixed(1)} %`);
 const lines = [
@@ -116,5 +186,10 @@ for (const f of FILTERS.map((x) => x.name)) {
   }
   lines.push('');
 }
+lines.push('## Règle d’acceptation du scanner', '',
+  `Vraies cartes : ${posTop.length} (photo, sombre, claire, rotation, petite, seconde image). Autres images : ${negTop.length}. Réglage actuel : distance ≤ ${SCAN_MAX_DISTANCE}, écart ≥ ${SCAN_MIN_GAP}.`,
+  'reconnues : part des vraies cartes acceptées ; bonne parmi les 3 : quand acceptée, la bonne carte est parmi les 3 proposées ; puis part des autres images faussement acceptées.', '',
+  '| distance ≤ | écart ≥ | reconnues | bonne parmi les 3 | produit scellé | surface | gros plan |', '|---:|---:|---:|---:|---:|---:|---:|',
+  ...grid.map((g) => `| ${g.maxDistance} | ${g.minGap} | ${pct(g.accepted)} | ${pct(g.right)} | ${pct(g.falsePos['produit scellé'])} | ${pct(g.falsePos.surface)} | ${pct(g.falsePos['gros plan'])} |`), '');
 await writeFile(join(values.out, 'measure.md'), lines.join('\n'));
 console.log(lines.join('\n'));

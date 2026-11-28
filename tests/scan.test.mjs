@@ -131,7 +131,11 @@ test('cumul : deux lectures vides de suite effacent tout', async () => {
 });
 
 test('reconnaissance par l’image : même carte en tête sur 3 des 4 dernières images', async () => {
-  const { createImageTracker, preferRead } = await import('../site/lib/scan.js');
+  const { createImageTracker, preferRead, acceptMatch } = await import('../site/lib/scan.js');
+  const five = (d1, d5) => [{ id: 1, distance: d1 }, { id: 2, distance: d1 }, { id: 3, distance: d5 }, { id: 4, distance: d5 }, { id: 5, distance: d5 }];
+  assert.equal(acceptMatch(five(30, 70), { maxDistance: 60, minGap: 15 }), true, 'deux rééditions à égalité, puis rien');
+  assert.equal(acceptMatch(five(55, 62), { maxDistance: 60, minGap: 15 }), false, 'ne se détache pas');
+  assert.equal(acceptMatch(five(65, 99), { maxDistance: 60, minGap: 15 }), false, 'trop loin');
   const t = createImageTracker({ maxDistance: 50 });
   const top = (id, distance = 20) => [{ id, distance }, { id: 9, distance: distance + 5 }, { id: 8, distance: distance + 9 }];
   assert.equal(t.push(top(1)), null);
@@ -150,6 +154,11 @@ test('reconnaissance par l’image : même carte en tête sur 3 des 4 dernières
   for (let i = 0; i < 4; i++) t.push([]);
   t.push(top(1)); t.push(top(1));
   assert.ok(t.push(top(1)));
+
+  // Rien ne se détache (toutes les cartes à égale distance) : pas de carte reconnue.
+  const flat = createImageTracker({ maxDistance: 50, minGap: 10 });
+  const same = [1, 2, 3, 4, 5].map((id) => ({ id, distance: 40 + id }));
+  for (let i = 0; i < 5; i++) assert.equal(flat.push(same), null);
 
   assert.deepEqual(preferRead([1, 9, 8], [{ id: 8 }, { id: 77 }]), [8, 1, 9]);
   assert.deepEqual(preferRead([1, 9, 8]), [1, 9, 8]);

@@ -212,9 +212,11 @@ export const confidence = (distance, bits = HASH_BITS) => 100 - (distance / bits
 export const ART = { x: 0.08, y: 0.1, w: 0.84, h: 0.42 }; // fenêtre de l'illustration d'une carte classique
 export const SCAN_BYTES = 24 + 14;
 export const SCAN_BITS = 189 + 105;
-// Distance au-delà de laquelle une image n'est pas considérée comme une carte du catalogue (provisoire : à ajuster
-// avec les mesures et les premiers scans réels). Le scanner exige en plus le même résultat sur plusieurs images.
+// Règle d'acceptation du scanner (voir acceptMatch dans scan.js) : distance maximale de la carte reconnue, et écart
+// minimal avec la 5e candidate. Réglées avec scripts/measure-fingerprints.mjs (photos simulées et images qui ne sont
+// pas des cartes) ; le scanner exige en plus le même résultat sur 3 des 4 dernières images.
 export const SCAN_MAX_DISTANCE = 75;
+export const SCAN_MIN_GAP = 12;
 
 /** Empreinte de scan (38 octets) d'une image RGBA qui montre une carte, avec ou sans un peu de fond autour. */
 export function scanHash(rgba, width, height) {
