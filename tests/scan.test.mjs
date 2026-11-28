@@ -129,3 +129,28 @@ test('cumul : deux lectures vides de suite effacent tout', async () => {
   ev.add(parseScan('', catalog));
   assert.deepEqual(ids(ev.add(parseScan('212/1B7', catalog))), []);
 });
+
+test('reconnaissance par l’image : même carte en tête sur 3 des 4 dernières images', async () => {
+  const { createImageTracker, preferRead } = await import('../site/lib/scan.js');
+  const t = createImageTracker({ maxDistance: 50 });
+  const top = (id, distance = 20) => [{ id, distance }, { id: 9, distance: distance + 5 }, { id: 8, distance: distance + 9 }];
+  assert.equal(t.push(top(1)), null);
+  assert.equal(t.push(top(2)), null);
+  assert.equal(t.push(top(1)), null);
+  assert.deepEqual(t.push(top(1)), { ids: [1, 9, 8] });
+  assert.equal(t.push(top(1)), null, 'déjà signalée');
+  // Trop loin : rien n'est reconnu (pas de carte devant la caméra).
+  const far = createImageTracker({ maxDistance: 50 });
+  for (let i = 0; i < 5; i++) assert.equal(far.push(top(3, 80)), null);
+  // Après reset, la même carte peut être signalée de nouveau.
+  t.reset();
+  t.push(top(1)); t.push(top(1));
+  assert.deepEqual(t.push(top(1)).ids[0], 1);
+  // Carte retirée (4 images sans carte) puis remise : signalée de nouveau.
+  for (let i = 0; i < 4; i++) t.push([]);
+  t.push(top(1)); t.push(top(1));
+  assert.ok(t.push(top(1)));
+
+  assert.deepEqual(preferRead([1, 9, 8], [{ id: 8 }, { id: 77 }]), [8, 1, 9]);
+  assert.deepEqual(preferRead([1, 9, 8]), [1, 9, 8]);
+});

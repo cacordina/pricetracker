@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   HASH_BITS, HASH_BYTES, RECORD, boxDownscale, computeDCT, colorHash, hashToString, hamming, encodeIndex, nearest, confidence,
-  trimBorders, cropRGBA, thumbnail, thumbnailDistance,
+  trimBorders, cropRGBA, thumbnail, thumbnailDistance, scanHash, SCAN_BYTES, SCAN_MAX_DISTANCE,
 } from '../site/lib/fingerprint.js';
 
 /** Image RGBA fabriquée : formes et couleurs tirées d'une graine (une « carte »), plus des retouches. */
@@ -61,15 +61,19 @@ test('empreinte : stable (clarté, bruit, résolution), différente pour une aut
   assert.ok(Math.min(...others) >= 20, `autres cartes trop proches : ${others}`);
 });
 
-test('index : la carte se retrouve en tête, filtre par identifiants', () => {
-  const entries = [7, 11, 23, 42].map((seed, i) => ({ id: 1000 + i, hash: hash(card(seed)) }));
+test('empreinte de scan et index : la carte se retrouve en tête, filtre par identifiants', () => {
+  const scan = ({ px, w, h }) => scanHash(px, w, h);
+  assert.equal(scan(card(7)).length, SCAN_BYTES);
+  const entries = [7, 11, 23, 42].map((seed, i) => ({ id: 1000 + i, hash: scan(card(seed)) }));
   const index = encodeIndex(entries);
   assert.equal(index.length, 4 * RECORD);
-  const found = nearest(index, hash(card(23, { light: 20, noise: 20 })), { limit: 2 });
+  const found = nearest(index, scan(card(23, { light: 20, noise: 20 })), { limit: 2 });
+  assert.equal(found.length, 2);
   assert.equal(found[0].id, 1002);
   assert.ok(found[0].distance < found[1].distance);
-  assert.equal(nearest(index, hash(card(23)))[0].confidence, 100);
-  assert.deepEqual(nearest(index, hash(card(23)), { only: new Set([1000, 1003]) }).map((r) => r.id).sort(), [1000, 1003]);
+  assert.ok(found[0].distance <= SCAN_MAX_DISTANCE);
+  assert.equal(nearest(index, scan(card(23)))[0].confidence, 100);
+  assert.deepEqual(nearest(index, scan(card(23)), { only: new Set([1000, 1003]) }).map((r) => r.id).sort(), [1000, 1003]);
   assert.equal(confidence(21), 80);
 });
 

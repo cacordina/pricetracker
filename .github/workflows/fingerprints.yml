@@ -1,28 +1,37 @@
 name: Empreintes des cartes (scanner)
 
-# Calcule l'empreinte d'image de chaque carte du catalogue et mesure la précision de la reconnaissance.
-# Rien n'est publié pour l'instant : les résultats sont dans les artefacts et le résumé de l'exécution.
-# Lancé à la main, ou quand le calcul de l'empreinte ou ces scripts changent.
+# Empreinte d'image de chaque carte du catalogue, pour le scanner (data/fingerprints.bin, environ 750 Ko).
+# - après chaque reconstruction du catalogue, et à la demande : calcul et publication sur la branche data
+#   (le site est ensuite republié par la mise à jour quotidienne) ;
+# - quand le calcul de l'empreinte change (sur n'importe quelle branche) : calcul et mesure de la précision, sans
+#   publier hors de main (résultats dans le résumé de l'exécution et les artefacts).
 on:
+  workflow_run:
+    workflows: ['Catalogue japonais (hebdomadaire)']
+    types: [completed]
   push:
     paths:
       - site/lib/fingerprint.js
       - scripts/build-fingerprints.mjs
       - scripts/measure-fingerprints.mjs
-      - scripts/experiment-fingerprints.mjs
-      - scripts/lib/degrade.mjs
       - .github/workflows/fingerprints.yml
   workflow_dispatch:
     inputs:
-      sample:
-        description: "Nombre de cartes de l'échantillon de mesure"
-        default: '1500'
+      measure:
+        description: 'Mesurer aussi la précision (environ 10 minutes)'
+        type: boolean
+        default: false
+      experiment:
+        description: 'Comparer aussi les variantes sans numéro (environ 10 minutes)'
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   fingerprints:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -45,26 +54,29 @@ jobs:
       - name: Calculer les empreintes
         run: node scripts/build-fingerprints.mjs --data data --cache .images --out out
       - name: Mesurer la précision
-        env:
-          SAMPLE: ${{ inputs.sample || '1500' }}
+        if: github.event_name == 'push' || inputs.measure
         run: |
-          node scripts/measure-fingerprints.mjs --data data --cache .images --out out --sample "$SAMPLE"
+          node scripts/measure-fingerprints.mjs --data data --cache .images --out out --sample 1500
           cat out/measure.md >> "$GITHUB_STEP_SUMMARY"
       - name: Comparer les variantes sans numéro
+        if: inputs.experiment
         run: |
           node scripts/experiment-fingerprints.mjs --data data --cache .images --out out --sample 600
           cat out/experiment.md >> "$GITHUB_STEP_SUMMARY"
-      # Le second tri lit les pixels des images des cartes sur le téléphone : il faut que leurs serveurs l'autorisent.
-      - name: Images lisibles depuis le site (CORS)
-        run: |
-          {
-            echo '## CORS des images'
-            for url in https://assets.tcgdex.net/ja/SV/SV2a/001/low.webp https://tcgplayer-cdn.tcgplayer.com/product/496157_200w.jpg; do
-              echo "- $url : $(curl -sI -H 'Origin: https://cacordina.github.io' "$url" | grep -i '^access-control-allow-origin' | tr -d '\r' || true)"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
-          tail -3 "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: fingerprints
           path: out/
+      - name: Publier sur la branche data
+        if: github.ref == 'refs/heads/main'
+        working-directory: data
+        run: |
+          cp ../out/fingerprints.bin fingerprints.bin
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add fingerprints.bin
+          git diff --cached --quiet && { echo "Empreintes inchangées"; exit 0; }
+          git commit -q -m "empreintes du scanner du $(date -u +%F)"
+          # La mise à jour quotidienne peut avoir poussé entre-temps : on se replace dessus (fichiers différents).
+          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 10; done
+          exit 1

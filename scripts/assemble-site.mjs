@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Assemble le site publié : le code (site/), les données utiles au site (catalogue, instantané, historiques,
-// prix TCGplayer) et le service worker prêt pour le hors connexion.
+// prix TCGplayer, empreintes du scanner) et le service worker prêt pour le hors connexion.
 // Usage : node scripts/assemble-site.mjs <dossier des données> <dossier de sortie>
 import { cp, mkdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -17,6 +17,7 @@ export async function assembleSite(dataDir, outDir) {
   for (const file of ['catalog.json', 'snapshot.json']) await cp(join(dataDir, file), join(outDir, 'data', file));
   await cp(join(dataDir, 'history'), join(outDir, 'data', 'history'), { recursive: true });
   if (await exists(join(dataDir, 'us'))) await cp(join(dataDir, 'us'), join(outDir, 'data', 'us'), { recursive: true });
+  if (await exists(join(dataDir, 'fingerprints.bin'))) await cp(join(dataDir, 'fingerprints.bin'), join(outDir, 'data', 'fingerprints.bin'));
   return buildSw(outDir);
 }
 

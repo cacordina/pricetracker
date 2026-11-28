@@ -56,3 +56,19 @@ export const loadUsSnapshot = () => getJson('us/snapshot.json', { optional: true
 
 /** Historique TCGplayer d'une extension ({ dates, rates, cards }), ou null. */
 export const loadUsHistory = (setId) => getJson(`us/history/${historyFile(setId)}`, { optional: true }).catch(() => null);
+
+/**
+ * Empreintes d'image des cartes, pour le scanner (Uint8Array, voir fingerprint.js), ou null si elles ne sont pas
+ * (encore) publiées. Environ 750 Ko, chargées seulement à l'ouverture du scanner, puis gardées.
+ */
+let fingerprints = null;
+export function loadFingerprints() {
+  fingerprints ??= fetch(`${DATA_URL}/fingerprints.bin`, { cache: 'no-cache' })
+    .then((res) => {
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`Empreintes indisponibles (HTTP ${res.status})`);
+      return res.arrayBuffer().then((buf) => new Uint8Array(buf));
+    });
+  fingerprints.catch(() => { fingerprints = null; });
+  return fingerprints;
+}

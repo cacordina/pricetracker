@@ -3,7 +3,7 @@
 //   npm install --no-save sharp && node scripts/build-fingerprints.mjs --data data --cache .images --out out
 // Télécharge les images des cartes (TCGdex et TCGplayer, petites tailles ; gardées dans --cache d'une fois sur
 // l'autre), calcule leur empreinte avec le code du site (site/lib/fingerprint.js) et écrit :
-//   out/fingerprints.bin      index : 18 octets par carte (voir encodeIndex), image TCGdex en priorité
+//   out/fingerprints.bin      index : 42 octets par carte (voir encodeIndex), image TCGdex en priorité
 //   out/fingerprints-alt.bin  index des images de l'autre source, pour les cartes qui en ont deux (mesure)
 //   out/fingerprints.json     bilan : cartes sans image, échecs de téléchargement
 // sharp (décodage des images) n'est installé que sur GitHub : le site n'en dépend pas.
@@ -11,7 +11,7 @@ import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { imageUrls } from '../site/lib/links.js';
-import { colorHash, encodeIndex } from '../site/lib/fingerprint.js';
+import { scanHash, encodeIndex } from '../site/lib/fingerprint.js';
 
 const HEADERS = { 'user-agent': 'jp-card-price-tracker' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -64,7 +64,7 @@ export async function buildFingerprints({ catalog, cacheDir, sharp, fetchImpl = 
         const buf = await fetchImage(url, join(cacheDir, `${card.id}-${k}${url.endsWith('.webp') ? '.webp' : '.jpg'}`), fetchImpl);
         if (!buf) continue;
         const { rgba, width, height } = await decode(sharp, buf);
-        hashes.push(colorHash(rgba, width, height));
+        hashes.push(scanHash(rgba, width, height));
       } catch (err) {
         report.failed.push({ id: card.id, url, error: String(err.message ?? err) });
       }

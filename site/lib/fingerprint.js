@@ -14,9 +14,8 @@ export const FREQ_SIZE = 6;
 export const HASH_BITS = (FREQ_SIZE * FREQ_SIZE - 1) * 3; // 105
 export const HASH_BYTES = Math.ceil(HASH_BITS / 8); // 14
 
-// Seuils de pokemonpocket-v2 (en % de ressemblance), à recalibrer sur des photos de vraies cartes.
-export const RECOGNITION_THRESHOLD = 78; // au-dessus : carte reconnue
-export const DISPLAY_MIN_CONFIDENCE = 75; // en dessous : trop incertain pour proposer la carte
+// Seuil de pokemonpocket-v2 (en % de ressemblance) pour son empreinte de 105 bits.
+export const RECOGNITION_THRESHOLD = 78;
 
 /**
  * Réduction déterministe (moyenne par blocs) d'une image RGBA vers size×sizeY (carré par défaut), par canal.
@@ -51,15 +50,14 @@ export function boxDownscale(data, w, h, size, sizeY = size) {
  * Pour les coefficients calculés, mêmes opérations dans le même ordre, donc mêmes valeurs.
  */
 export function computeDCT(pixels, n, keep = n) {
+  const cos = cosTable(n, keep);
   const result = new Array(n * n).fill(0);
   for (let u = 0; u < keep; u++) {
     for (let v = 0; v < keep; v++) {
       let sum = 0;
       for (let y = 0; y < n; y++) {
         for (let x = 0; x < n; x++) {
-          sum += pixels[y * n + x]
-            * Math.cos(((2 * x + 1) * u * Math.PI) / (2 * n))
-            * Math.cos(((2 * y + 1) * v * Math.PI) / (2 * n));
+          sum += pixels[y * n + x] * cos[u * n + x] * cos[v * n + y];
         }
       }
       const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
@@ -68,6 +66,18 @@ export function computeDCT(pixels, n, keep = n) {
     }
   }
   return result;
+}
+
+// cos(((2i + 1) · f · π) / 2n), calculé une fois par taille : les mêmes valeurs que dans la formule, en bien plus rapide.
+const COS = new Map();
+function cosTable(n, keep) {
+  const k = `${n}/${keep}`;
+  if (!COS.has(k)) {
+    const t = new Float64Array(keep * n);
+    for (let f = 0; f < keep; f++) for (let i = 0; i < n; i++) t[f * n + i] = Math.cos(((2 * i + 1) * f * Math.PI) / (2 * n));
+    COS.set(k, t);
+  }
+  return COS.get(k);
 }
 
 /**
@@ -191,10 +201,33 @@ export function thumbnailDistance(a, b) {
 }
 
 /** Ressemblance en % (100 = identique), comme pokemonpocket-v2. */
-export const confidence = (distance) => 100 - (distance / HASH_BITS) * 100;
+export const confidence = (distance, bits = HASH_BITS) => 100 - (distance / bits) * 100;
 
-/** Index des empreintes : un bloc de 18 octets par carte (identifiant Cardmarket sur 4 octets, puis l'empreinte). */
-export const RECORD = 4 + HASH_BYTES;
+// ---------- Empreinte de scan ----------
+// Retenue après mesure sur les 18 000 cartes (scripts/experiment-fingerprints.mjs) : la carte est d'abord recadrée sur
+// son contenu (trimBorders), puis on prend une empreinte fine de la carte entière (8×8 fréquences, 189 bits) et une
+// de la fenêtre de l'illustration (105 bits). Sans numéro lu : bonne carte en tête 84 % du temps sur des photos
+// simulées, parmi les 3 premières 96 % ; l'essentiel des erreurs restantes sont des rééditions à l'illustration identique.
+
+export const ART = { x: 0.08, y: 0.1, w: 0.84, h: 0.42 }; // fenêtre de l'illustration d'une carte classique
+export const SCAN_BYTES = 24 + 14;
+export const SCAN_BITS = 189 + 105;
+// Distance au-delà de laquelle une image n'est pas considérée comme une carte du catalogue (provisoire : à ajuster
+// avec les mesures et les premiers scans réels). Le scanner exige en plus le même résultat sur plusieurs images.
+export const SCAN_MAX_DISTANCE = 75;
+
+/** Empreinte de scan (38 octets) d'une image RGBA qui montre une carte, avec ou sans un peu de fond autour. */
+export function scanHash(rgba, width, height) {
+  const card = cropRGBA(rgba, width, height, trimBorders(rgba, width, height));
+  const art = cropRGBA(card.rgba, card.width, card.height, ART);
+  const out = new Uint8Array(SCAN_BYTES);
+  out.set(colorHash(card.rgba, card.width, card.height, { freq: 8 }), 0);
+  out.set(colorHash(art.rgba, art.width, art.height), 24);
+  return out;
+}
+
+/** Index des empreintes de scan : un bloc de 42 octets par carte (identifiant Cardmarket sur 4 octets, puis l'empreinte). */
+export const RECORD = 4 + SCAN_BYTES;
 
 export function encodeIndex(entries) {
   const out = new Uint8Array(entries.length * RECORD);
@@ -207,17 +240,23 @@ export function encodeIndex(entries) {
 }
 
 /**
- * Les cartes les plus proches d'une empreinte, de la plus proche à la moins proche.
+ * Les cartes les plus proches d'une empreinte de scan, de la plus proche à la moins proche.
  * `only` : identifiants à considérer (par exemple les cartes dont le numéro a été lu), ou null pour toutes.
  */
 export function nearest(index, hash, { limit = 5, only = null } = {}) {
   const view = new DataView(index.buffer, index.byteOffset, index.byteLength);
-  const out = [];
+  const best = [];
+  let worst = Infinity;
   for (let o = 0; o + RECORD <= index.byteLength; o += RECORD) {
     const id = view.getUint32(o, true);
     if (only && !only.has(id)) continue;
-    const distance = hamming(hash, index, o + 4);
-    out.push({ id, distance, confidence: confidence(distance) });
+    const distance = hamming(hash, index, o + 4, SCAN_BYTES);
+    if (best.length === limit && distance >= worst) continue;
+    let i = best.length;
+    while (i > 0 && best[i - 1].distance > distance) i--;
+    best.splice(i, 0, { id, distance });
+    if (best.length > limit) best.pop();
+    if (best.length === limit) worst = best[limit - 1].distance;
   }
-  return out.sort((a, b) => a.distance - b.distance).slice(0, limit);
+  return best.map((r) => ({ ...r, confidence: confidence(r.distance, SCAN_BITS) }));
 }

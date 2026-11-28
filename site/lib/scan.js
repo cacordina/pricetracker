@@ -141,3 +141,33 @@ export function createTracker({ missesToReset = 3 } = {}) {
     reset() { reported = null; pending = null; misses = 0; },
   };
 }
+
+/**
+ * Reconnaissance par l'image (empreinte de scan), image après image. `push(top)` reçoit les cartes les plus proches
+ * de l'image de la caméra ([{ id, distance }], la plus proche d'abord) et renvoie { ids } quand une carte vient d'être
+ * reconnue : la même carte en tête, assez proche, sur `need` des `frames` dernières images. `ids` : cette carte, puis
+ * les suivantes de la dernière image (les autres possibilités). Sinon null. Une carte signalée ne l'est plus tant
+ * qu'elle reste en tête ; reset() pour la carte suivante.
+ */
+export function createImageTracker({ frames = 4, need = 3, maxDistance }) {
+  let recent = [];
+  let reported = null;
+  return {
+    push(top) {
+      const first = top[0] && top[0].distance <= maxDistance ? top[0].id : null;
+      recent = [...recent, first].slice(-frames);
+      if (first === null) { if (recent.every((id) => id === null)) reported = null; return null; }
+      if (first === reported) return null;
+      if (recent.filter((id) => id === first).length < need) return null;
+      reported = first;
+      return { ids: [first, ...top.map((r) => r.id).filter((id) => id !== first)] };
+    },
+    reset() { recent = []; reported = null; },
+  };
+}
+
+/** Ordre des propositions : celles dont le numéro a été lu (OCR) passent devant, sans changer l'ordre sinon. */
+export function preferRead(ids, readCards = []) {
+  const read = new Set(readCards.map((c) => c.id));
+  return [...ids.filter((id) => read.has(id)), ...ids.filter((id) => !read.has(id))];
+}
