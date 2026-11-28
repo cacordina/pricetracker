@@ -147,7 +147,17 @@ await check('retour arrière au même endroit de la liste, puis bouton retour', 
   }
   expect(y > 0, 'la liste n’a pas défilé');
   // Ce que voit l'utilisateur : la carte au milieu de l'écran. Au retour, ce doit être la même.
-  const middle = () => page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight / 2)?.closest('a.tile')?.getAttribute('href') ?? null);
+  // La vignette la plus proche du centre (le centre exact peut tomber dans l'espace entre deux vignettes).
+  const middle = () => page.evaluate(() => {
+    let best = null, bestDist = Infinity;
+    for (const tile of document.querySelectorAll('a.tile')) {
+      const r = tile.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > innerHeight) continue;
+      const d = Math.hypot(r.left + r.width / 2 - innerWidth / 2, r.top + r.height / 2 - innerHeight / 2);
+      if (d < bestDist) { bestDist = d; best = tile.getAttribute('href'); }
+    }
+    return best;
+  });
   const seen = await middle();
   expect(seen, 'aucune vignette au milieu de l’écran');
   // Toucher une vignette visible, sans que le test fasse défiler la page.
