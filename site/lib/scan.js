@@ -183,3 +183,22 @@ export function preferRead(ids, readCards = []) {
   const read = new Set(readCards.map((c) => c.id));
   return [...ids.filter((id) => read.has(id)), ...ids.filter((id) => !read.has(id))];
 }
+
+/**
+ * Carte proposée par l'image, vérifiée avec le numéro lu sur la carte (OCR). `shownIds` : les cartes proposées, la
+ * première affichée ; `readIds` : les cartes qui portent le numéro lu ; `rankedRead` : ces mêmes cartes classées par
+ * ressemblance avec l'image ([{ id, distance }]). Renvoie { ids, status } :
+ *   confirmed  la carte affichée porte le numéro lu ;
+ *   corrected  une autre carte le porte (une autre réédition proposée, ou à défaut la plus ressemblante de celles qui le
+ *              portent, si elle est assez proche : maxDistance) ; elle passe en tête ;
+ *   unread     numéro pas lu, ou qui ne correspond à rien de plausible : on garde la proposition de l'image.
+ */
+export function checkWithNumber(shownIds, readIds, rankedRead = [], { maxDistance }) {
+  if (!readIds.length) return { ids: shownIds, status: 'unread' };
+  const read = new Set(readIds);
+  if (read.has(shownIds[0])) return { ids: shownIds, status: 'confirmed' };
+  if (shownIds.some((id) => read.has(id))) return { ids: preferRead(shownIds, readIds.map((id) => ({ id }))), status: 'corrected' };
+  const best = rankedRead[0];
+  if (best && best.distance <= maxDistance) return { ids: [best.id, ...shownIds.filter((id) => id !== best.id)], status: 'corrected' };
+  return { ids: shownIds, status: 'unread' };
+}

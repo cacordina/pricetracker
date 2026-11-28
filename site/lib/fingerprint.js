@@ -218,6 +218,9 @@ export const SCAN_BITS = 189 + 105;
 // fausse reconnaissance) ; le scanner exige en plus le même résultat sur 3 des 4 dernières images.
 export const SCAN_MAX_DISTANCE = 70;
 export const SCAN_MIN_GAP = 12;
+// Distance maximale quand le numéro a été lu sur la carte : on ne choisit plus que parmi les quelques cartes qui le portent
+// (mesure : la bonne carte en tête 99 % du temps), on peut donc être moins strict.
+export const SCAN_MAX_DISTANCE_WITH_NUMBER = 85;
 
 /** Empreinte de scan (38 octets) d'une image RGBA qui montre une carte, avec ou sans un peu de fond autour. */
 export function scanHash(rgba, width, height) {

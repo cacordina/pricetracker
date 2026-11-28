@@ -163,3 +163,16 @@ test('reconnaissance par l’image : même carte en tête sur 3 des 4 dernières
   assert.deepEqual(preferRead([1, 9, 8], [{ id: 8 }, { id: 77 }]), [8, 1, 9]);
   assert.deepEqual(preferRead([1, 9, 8]), [1, 9, 8]);
 });
+
+test('carte de l’image vérifiée avec le numéro lu', async () => {
+  const { checkWithNumber } = await import('../site/lib/scan.js');
+  const rule = { maxDistance: 85 };
+  assert.deepEqual(checkWithNumber([1, 2, 3], [], [], rule), { ids: [1, 2, 3], status: 'unread' });
+  assert.deepEqual(checkWithNumber([1, 2, 3], [1, 7], [], rule), { ids: [1, 2, 3], status: 'confirmed' });
+  // Réédition : le numéro lu est celui de la 2e proposition.
+  assert.deepEqual(checkWithNumber([1, 2, 3], [2], [], rule), { ids: [2, 1, 3], status: 'corrected' });
+  // Numéro d'une carte non proposée, mais ressemblante : elle passe en tête.
+  assert.deepEqual(checkWithNumber([1, 2, 3], [9], [{ id: 9, distance: 60 }], rule), { ids: [9, 1, 2, 3], status: 'corrected' });
+  // Numéro d'une carte qui ne ressemble pas à l'image (mauvaise lecture) : on garde l'image.
+  assert.deepEqual(checkWithNumber([1, 2, 3], [9], [{ id: 9, distance: 120 }], rule), { ids: [1, 2, 3], status: 'unread' });
+});

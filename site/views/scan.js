@@ -4,9 +4,9 @@
 //   - le texte : série et numéro imprimés en bas à gauche (OCR, plus lent, pas toujours lisible). Quand il est lu,
 //     il départage les rééditions à l'illustration identique, que l'image seule ne distingue pas.
 // À la première carte reconnue, la caméra s'arrête et affiche la carte, avec les autres possibilités en dessous.
-import { parseScan, mergeScans, createTracker, createEvidence, createImageTracker, preferRead, acceptMatch } from '../lib/scan.js';
+import { parseScan, mergeScans, createTracker, createEvidence, createImageTracker, preferRead, acceptMatch, checkWithNumber } from '../lib/scan.js';
 import { prepare, readCardPasses } from '../lib/ocr.js';
-import { scanHash, nearest, SCAN_MAX_DISTANCE, SCAN_MIN_GAP } from '../lib/fingerprint.js';
+import { scanHash, nearest, SCAN_MAX_DISTANCE, SCAN_MIN_GAP, SCAN_MAX_DISTANCE_WITH_NUMBER } from '../lib/fingerprint.js';
 import { loadFingerprints } from '../lib/data.js';
 import { displayName, priceOf } from '../lib/model.js';
 import { formatEuro } from '../lib/format.js';
@@ -34,12 +34,16 @@ function frameCanvas(source, width = null) {
   return canvas;
 }
 
-/** Les cartes du catalogue les plus proches de l'image : [{ id, distance }]. */
+/** Empreinte de l'image et cartes du catalogue les plus proches : { hash, top: [{ id, distance }] }. */
 function lookImage(index, source) {
   const canvas = frameCanvas(source, IMAGE_WIDTH);
   const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-  return nearest(index, scanHash(data, canvas.width, canvas.height), { limit: 8 });
+  const hash = scanHash(data, canvas.width, canvas.height);
+  return { hash, top: nearest(index, hash, { limit: 8 }) };
 }
+
+/** Les cartes `cards` (qui portent le numéro lu) classées par ressemblance avec l'empreinte : [{ id, distance }]. */
+const rankByImage = (index, hash, cards) => nearest(index, hash, { limit: 12, only: new Set(cards.map((c) => c.id)) });
 
 const HINT = '<div class="muted" style="text-align:center">Présentez la carte entière dans le cadre, bien à plat : elle est reconnue toute seule, sans appuyer.</div>';
 
@@ -69,6 +73,8 @@ export async function render(root, { catalog, snapshot, store }) {
   const imageTracker = createImageTracker(RULE);
   let index = null; // empreintes du catalogue
   let lastRead = []; // dernières cartes trouvées par le texte lu (OCR)
+  let lastNumber = null; // dernier numéro lu : { number, official }
+  let lastHash = null; // empreinte de la dernière image regardée
   let stream = null;
   let alive = true;
   let paused = false;
@@ -142,8 +148,10 @@ export async function render(root, { catalog, snapshot, store }) {
       const result = evidence.add(await read(video));
       if (!alive || paused) return wait(400);
       lastRead = result.candidates;
+      if (result.number) lastNumber = { number: result.number, official: result.official };
       const hit = tracker.push(result);
-      if (hit) detected(hit.candidates, 5); // numéro lu : les cartes qui le portent
+      // Numéro lu avec certitude : les cartes qui le portent, la plus ressemblante à l'image d'abord.
+      if (hit) detected(byImage(hit.candidates), 5, 'confirmed');
       else if (result.number) pill.textContent = `Lu ${result.number}${result.official ? `/${result.official}` : ''}… je vérifie`;
     } catch (err) {
       // Moteur de lecture indisponible (hors connexion…) : la reconnaissance par l'image continue seule.
@@ -161,8 +169,17 @@ export async function render(root, { catalog, snapshot, store }) {
     if (!index) return; // empreintes pas encore publiées : le texte seul
     if (paused || document.hidden || !stream || video.readyState < 2) return wait(300);
     try {
-      const hit = imageTracker.push(lookImage(index, video));
-      if (hit) detected(preferRead(hit.ids, lastRead).map((id) => catalog.byId.get(id)).filter(Boolean));
+      const { hash, top } = lookImage(index, video);
+      lastHash = hash;
+      // Numéro déjà lu : l'image n'a plus qu'à choisir parmi les cartes qui le portent, avec un seuil plus souple.
+      const ranked = lastRead.length ? rankByImage(index, hash, lastRead) : [];
+      if (ranked[0] && ranked[0].distance <= SCAN_MAX_DISTANCE_WITH_NUMBER) {
+        const ids = [...ranked.map((r) => r.id), ...top.map((r) => r.id)];
+        detected(cardsOf([...new Set(ids)]), ALTERNATIVES, 'confirmed');
+      } else {
+        const hit = imageTracker.push(top);
+        if (hit) { detected(cardsOf(hit.ids)); confirmNumber(); }
+      }
     } catch (err) {
       console.warn('Reconnaissance par l’image :', err);
       return wait(2000);
@@ -170,8 +187,36 @@ export async function render(root, { catalog, snapshot, store }) {
     wait(150);
   }
 
+  const cardsOf = (ids) => ids.map((id) => catalog.byId.get(id)).filter(Boolean);
+
+  /** Cartes classées par ressemblance avec la dernière image (ordre d'origine sans empreintes). */
+  function byImage(cards) {
+    if (!index || !lastHash) return cards;
+    const ranked = rankByImage(index, lastHash, cards).map((r) => r.id);
+    return [...cardsOf(ranked), ...cards.filter((c) => !ranked.includes(c.id))];
+  }
+
+  /**
+   * Après une reconnaissance par l'image : lecture du numéro sur l'image figée, qui confirme la carte ou la corrige
+   * (réédition à l'illustration identique). La carte s'affiche tout de suite ; la vérification suit (1 à 2 s).
+   */
+  async function confirmNumber(source = video) {
+    const shown = current;
+    shown.check = 'checking';
+    drawResult();
+    const result = await read(source).catch(() => null);
+    if (current !== shown || shown.picked) return; // autre carte entre-temps, ou choix fait à la main
+    const ids = [shown.card, ...shown.others].map((c) => c.id);
+    const readCards = result?.candidates ?? [];
+    const ranked = index && lastHash && readCards.length ? rankByImage(index, lastHash, readCards) : [];
+    const out = checkWithNumber(ids, readCards.map((c) => c.id), ranked, { maxDistance: SCAN_MAX_DISTANCE_WITH_NUMBER });
+    const [card, ...others] = cardsOf(out.ids);
+    current = { card, others: others.slice(0, ALTERNATIVES), check: out.status, read: result };
+    drawResult();
+  }
+
   /** Une carte vient d'être reconnue : on fige l'image et on affiche la carte, avec les autres possibilités. */
-  function detected(cards, alternatives = ALTERNATIVES) {
+  function detected(cards, alternatives = ALTERNATIVES, check = null) {
     if (!cards.length || paused) return;
     navigator.vibrate?.(60);
     paused = true;
@@ -179,7 +224,7 @@ export async function render(root, { catalog, snapshot, store }) {
     frame.classList.add('hit');
     toast.hidden = true;
     const [card, ...others] = cards;
-    current = { card, others: others.slice(0, alternatives) };
+    current = { card, others: others.slice(0, alternatives), check, read: check ? { ...lastNumber } : null };
     pill.textContent = 'Carte reconnue';
     drawResult();
     resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -192,6 +237,7 @@ export async function render(root, { catalog, snapshot, store }) {
     imageTracker.reset();
     evidence.clear();
     lastRead = [];
+    lastNumber = null;
     frame.classList.remove('hit');
     paused = false;
     if (stream) video.play().catch(() => {});
@@ -204,6 +250,13 @@ export async function render(root, { catalog, snapshot, store }) {
     const again = '<button type="button" class="btn sec" data-act="again">Scanner une autre carte</button>';
     const { card, others } = current;
     const have = owned.get(card.id) ?? 0;
+    const pad = (n) => (/^\d+$/.test(n) ? n.padStart(3, '0') : n); // comme imprimé : 079/096
+    const num = current.read?.number ? `${pad(current.read.number)}${current.read.official ? `/${pad(current.read.official)}` : ''}` : '';
+    const check = {
+      checking: '<div class="muted">Lecture du numéro…</div>',
+      confirmed: num ? `<div class="up">✓ Numéro ${esc(num)} lu sur la carte</div>` : '<div class="up">✓ Numéro lu sur la carte</div>',
+      corrected: `<div class="up">✓ Corrigée grâce au numéro lu${num ? ` (${esc(num)})` : ''}</div>`,
+    }[current.check] ?? '';
     // Les autres possibilités : surtout des rééditions de la même illustration, à départager par le coin bas gauche.
     const alternatives = others.length ? `<div class="box" style="margin-top:12px">
         <b>Pas la bonne ?</b> <span class="muted">Comparez le code et le numéro en bas à gauche de votre carte.</span>
@@ -216,7 +269,7 @@ export async function render(root, { catalog, snapshot, store }) {
         ${cardImg(card, catalog.sets)}
         <div class="name"><b>${esc(displayName(card))}</b>
           <div class="muted">${esc(card.s)} · ${esc(card.n)}${card.r === 'AR' || card.r === 'SAR' ? ` · ${card.r}` : ''}</div>
-          <div class="muted">${have ? `Dans ma collection ×${have}` : connected ? 'Pas encore dans ma collection' : ''}</div></div>
+          <div class="muted">${have ? `Dans ma collection ×${have}` : connected ? 'Pas encore dans ma collection' : ''}</div>${check}</div>
         <div class="price"><span class="big" style="font-size:22px">${formatEuro(price(card))}</span></div>
       </a>
       ${message ? `<div class="banner">${esc(message)}</div>` : ''}
@@ -237,7 +290,7 @@ export async function render(root, { catalog, snapshot, store }) {
       // La carte choisie prend la place de la proposition principale, qui passe dans les autres possibilités.
       const card = current.others.find((c) => c.id === Number(button.dataset.id));
       if (card) {
-        current = { card, others: [current.card, ...current.others.filter((c) => c !== card)] };
+        current = { card, others: [current.card, ...current.others.filter((c) => c !== card)], picked: true };
         drawResult();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -270,14 +323,17 @@ export async function render(root, { catalog, snapshot, store }) {
     try {
       await image.decode();
       await indexReady;
-      const top = index ? lookImage(index, image) : [];
-      if (acceptMatch(top, RULE)) {
-        // Le texte, s'il est lisible, départage les rééditions ; la photo est reconnue même sans.
-        const result = await read(image).catch(() => ({ candidates: [] }));
-        return detected(preferRead(top.map((r) => r.id), result.candidates).map((id) => catalog.byId.get(id)).filter(Boolean));
+      const look = index ? lookImage(index, image) : { hash: null, top: [] };
+      lastHash = look.hash;
+      // Image et numéro lus ensemble : le numéro confirme ou corrige ce que l'image propose.
+      const result = await read(image).catch(() => ({ number: null, candidates: [] }));
+      if (result.number) lastNumber = { number: result.number, official: result.official };
+      if (acceptMatch(look.top, RULE)) {
+        const ranked = look.hash && result.candidates.length ? rankByImage(index, look.hash, result.candidates) : [];
+        const out = checkWithNumber(look.top.map((r) => r.id), result.candidates.map((c) => c.id), ranked, { maxDistance: SCAN_MAX_DISTANCE_WITH_NUMBER });
+        return detected(cardsOf(out.ids), ALTERNATIVES, out.status === 'unread' ? null : out.status);
       }
-      const result = await read(image);
-      if (result.candidates.length) return detected(result.candidates, 5);
+      if (result.candidates.length) return detected(byImage(result.candidates), 5, 'confirmed');
       pill.textContent = before;
       resultBox.innerHTML = `<div class="banner">Photo non reconnue${result.number ? ` (lu ${esc(result.number)}${result.official ? `/${esc(result.official)}` : ''})` : ''}. Cadrez la carte entière, à plat et sans reflet.</div>`;
     } catch {
