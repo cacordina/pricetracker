@@ -1,128 +1,142 @@
 // Empreintes d'image des cartes, pour les reconnaître à leur image (scanner). Le même code tourne sur GitHub
-// (construction de l'index, à partir des images du catalogue) et sur le téléphone (photo de la carte) : les
-// empreintes sont donc comparables. Entrée : pixels RGBA (Uint8ClampedArray / Uint8Array), largeur, hauteur.
+// (empreintes du catalogue, à partir des images des cartes) et sur le téléphone (photo cadrée de la carte) :
+// les empreintes sont donc comparables.
 //
-// Méthode : hachage perceptuel (pHash) — l'image réduite en 32×32 niveaux de gris, transformée en fréquences (DCT),
-// et les 63 basses fréquences comparées à leur médiane donnent 64 bits. Deux images proches ont peu de bits
-// différents (distance de Hamming). Deux empreintes par carte : la carte entière, et la zone de l'illustration.
+// Méthode reprise du scanner de pokemonpocket-v2 (src/features/scan/services/imageHashService.ts), éprouvée :
+// hachage perceptuel couleur — l'image réduite à 24×24 par moyenne de blocs (déterministe, indépendante du
+// navigateur), transformée en fréquences (DCT) sur chaque canal R, V, B ; les 35 basses fréquences de chaque
+// canal (6×6 sans la composante continue) comparées à leur moyenne donnent 105 bits. Deux images proches ont
+// peu de bits différents (distance de Hamming). Seule différence : on ne calcule que les 36 coefficients utiles
+// (mêmes opérations, dans le même ordre : résultat identique), ce qui va environ 15 fois plus vite.
 
-/** Zone de l'illustration sur une carte Pokémon (en proportion de la largeur et de la hauteur). */
-export const ART = { x: 0.08, y: 0.1, w: 0.84, h: 0.42 };
+export const HASH_SIZE = 24;
+export const FREQ_SIZE = 6;
+export const HASH_BITS = (FREQ_SIZE * FREQ_SIZE - 1) * 3; // 105
+export const HASH_BYTES = Math.ceil(HASH_BITS / 8); // 14
+
+// Seuils de pokemonpocket-v2 (en % de ressemblance), à recalibrer sur des photos de vraies cartes.
+export const RECOGNITION_THRESHOLD = 78; // au-dessus : carte reconnue
+export const DISPLAY_MIN_CONFIDENCE = 75; // en dessous : trop incertain pour proposer la carte
 
 /**
- * Niveaux de gris réduits par moyenne de surface (chaque pixel de sortie = moyenne des pixels qu'il couvre),
- * sur la région { x, y, w, h } (en proportions) de l'image.
+ * Réduction déterministe (moyenne par blocs) d'une image RGBA vers size×size, par canal.
+ * Identique à boxDownscale de pokemonpocket-v2.
  */
-export function grayResize(rgba, width, height, outW, outH, region = { x: 0, y: 0, w: 1, h: 1 }) {
-  const x0 = region.x * width;
-  const y0 = region.y * height;
-  const sw = (region.w * width) / outW;
-  const sh = (region.h * height) / outH;
-  const out = new Float64Array(outW * outH);
-  for (let oy = 0; oy < outH; oy++) {
-    const ya = y0 + oy * sh;
-    const yb = ya + sh;
-    for (let ox = 0; ox < outW; ox++) {
-      const xa = x0 + ox * sw;
-      const xb = xa + sw;
-      let sum = 0;
-      let weight = 0;
-      for (let y = Math.floor(ya); y < Math.ceil(yb) && y < height; y++) {
-        const wy = Math.min(yb, y + 1) - Math.max(ya, y);
-        for (let x = Math.floor(xa); x < Math.ceil(xb) && x < width; x++) {
-          const w = wy * (Math.min(xb, x + 1) - Math.max(xa, x));
-          const i = (y * width + x) * 4;
-          sum += w * (0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2]);
-          weight += w;
+export function boxDownscale(data, w, h, size) {
+  const r = new Array(size * size);
+  const g = new Array(size * size);
+  const b = new Array(size * size);
+  for (let ty = 0; ty < size; ty++) {
+    const y0 = Math.floor((ty * h) / size);
+    const y1 = Math.max(y0 + 1, Math.floor(((ty + 1) * h) / size));
+    for (let tx = 0; tx < size; tx++) {
+      const x0 = Math.floor((tx * w) / size);
+      const x1 = Math.max(x0 + 1, Math.floor(((tx + 1) * w) / size));
+      let sr = 0, sg = 0, sb = 0, n = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const i = (y * w + x) * 4;
+          sr += data[i]; sg += data[i + 1]; sb += data[i + 2]; n++;
         }
       }
-      out[oy * outW + ox] = weight ? sum / weight : 0;
+      const idx = ty * size + tx;
+      r[idx] = sr / n; g[idx] = sg / n; b[idx] = sb / n;
     }
   }
-  return out;
+  return { r, g, b };
 }
 
-const N = 32;
-// Coefficients de la DCT 32 points, calculés une fois.
-const COS = (() => {
-  const c = new Float64Array(N * N);
-  for (let k = 0; k < N; k++) for (let n = 0; n < N; n++) c[k * N + n] = Math.cos((Math.PI / N) * (n + 0.5) * k);
-  return c;
-})();
-
-/** pHash 64 bits (Uint8Array de 8 octets) d'une image 32×32 en niveaux de gris. */
-export function phash(gray32) {
-  // DCT en deux passes (lignes puis colonnes), seulement les 8 premières fréquences dans chaque sens.
-  const rows = new Float64Array(N * 8);
-  for (let y = 0; y < N; y++) {
-    for (let k = 0; k < 8; k++) {
-      let s = 0;
-      for (let x = 0; x < N; x++) s += gray32[y * N + x] * COS[k * N + x];
-      rows[y * 8 + k] = s;
+/**
+ * DCT de pokemonpocket-v2 (computeDCT), limitée aux fréquences u, v < keep : les autres valent 0.
+ * Pour les coefficients calculés, mêmes opérations dans le même ordre, donc mêmes valeurs.
+ */
+export function computeDCT(pixels, n, keep = n) {
+  const result = new Array(n * n).fill(0);
+  for (let u = 0; u < keep; u++) {
+    for (let v = 0; v < keep; v++) {
+      let sum = 0;
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          sum += pixels[y * n + x]
+            * Math.cos(((2 * x + 1) * u * Math.PI) / (2 * n))
+            * Math.cos(((2 * y + 1) * v * Math.PI) / (2 * n));
+        }
+      }
+      const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
+      const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
+      result[u * n + v] = ((2 * cu * cv) / n) * sum;
     }
   }
-  const freq = new Float64Array(64);
-  for (let k = 0; k < 8; k++) {
-    for (let j = 0; j < 8; j++) {
-      let s = 0;
-      for (let y = 0; y < N; y++) s += rows[y * 8 + j] * COS[k * N + y];
-      freq[k * 8 + j] = s;
-    }
-  }
-  const ac = [...freq.slice(1)].sort((a, b) => a - b); // sans la composante continue (luminosité moyenne)
-  const median = (ac[31] + ac[32]) / 2;
-  const bits = new Uint8Array(8);
-  for (let i = 1; i < 64; i++) if (freq[i] > median) bits[i >> 3] |= 1 << (i & 7);
-  return bits;
+  return result;
 }
 
-/** Empreintes d'une carte : la carte entière et son illustration. */
-export function cardFingerprint(rgba, width, height) {
-  return {
-    full: phash(grayResize(rgba, width, height, N, N)),
-    art: phash(grayResize(rgba, width, height, N, N, ART)),
-  };
+/** Empreinte couleur (105 bits, dans 14 octets) d'une image RGBA, dans l'ordre des bits de pokemonpocket-v2. */
+export function colorHash(rgba, width, height) {
+  const { r, g, b } = boxDownscale(rgba, width, height, HASH_SIZE);
+  const dct = [r, g, b].map((channel) => computeDCT(channel, HASH_SIZE, FREQ_SIZE));
+  const avg = dct.map((d) => {
+    let sum = 0, count = 0;
+    for (let y = 0; y < FREQ_SIZE; y++) for (let x = 0; x < FREQ_SIZE; x++) {
+      if (!(x === 0 && y === 0)) { sum += d[y * HASH_SIZE + x]; count++; }
+    }
+    return sum / count;
+  });
+  const bytes = new Uint8Array(HASH_BYTES);
+  let bit = 0;
+  for (let y = 0; y < FREQ_SIZE; y++) {
+    for (let x = 0; x < FREQ_SIZE; x++) {
+      if (x === 0 && y === 0) continue;
+      const pos = y * HASH_SIZE + x;
+      for (let c = 0; c < 3; c++, bit++) if (dct[c][pos] > avg[c]) bytes[bit >> 3] |= 1 << (bit & 7);
+    }
+  }
+  return bytes;
+}
+
+/** Empreinte en texte « 0101… » (105 caractères), le format stocké par pokemonpocket-v2. */
+export function hashToString(bytes) {
+  let s = '';
+  for (let bit = 0; bit < HASH_BITS; bit++) s += (bytes[bit >> 3] >> (bit & 7)) & 1 ? '1' : '0';
+  return s;
 }
 
 const POP = Uint8Array.from({ length: 256 }, (_, i) => { let c = 0; for (let v = i; v; v >>= 1) c += v & 1; return c; });
 
-/** Nombre de bits différents entre deux empreintes de 8 octets (lues à partir de `offset` dans `b`). */
+/** Nombre de bits différents entre deux empreintes (la seconde lue à partir de `offset` dans `b`). */
 export function hamming(a, b, offset = 0) {
   let d = 0;
-  for (let i = 0; i < 8; i++) d += POP[a[i] ^ b[offset + i]];
+  for (let i = 0; i < HASH_BYTES; i++) d += POP[a[i] ^ b[offset + i]];
   return d;
 }
 
-/**
- * Index des empreintes : un bloc de 20 octets par carte (identifiant Cardmarket sur 4 octets, puis empreinte
- * de la carte entière et de l'illustration, 8 octets chacune).
- */
-export const RECORD = 20;
+/** Ressemblance en % (100 = identique), comme pokemonpocket-v2. */
+export const confidence = (distance) => 100 - (distance / HASH_BITS) * 100;
+
+/** Index des empreintes : un bloc de 18 octets par carte (identifiant Cardmarket sur 4 octets, puis l'empreinte). */
+export const RECORD = 4 + HASH_BYTES;
 
 export function encodeIndex(entries) {
   const out = new Uint8Array(entries.length * RECORD);
   const view = new DataView(out.buffer);
-  entries.forEach(({ id, full, art }, i) => {
+  entries.forEach(({ id, hash }, i) => {
     view.setUint32(i * RECORD, id, true);
-    out.set(full, i * RECORD + 4);
-    out.set(art, i * RECORD + 12);
+    out.set(hash, i * RECORD + 4);
   });
   return out;
 }
 
 /**
  * Les cartes les plus proches d'une empreinte, de la plus proche à la moins proche.
- * Distance = carte entière + illustration (0 à 128). `only` : identifiants à considérer (ex. numéro lu), ou null.
+ * `only` : identifiants à considérer (par exemple les cartes dont le numéro a été lu), ou null pour toutes.
  */
-export function nearest(index, fp, { limit = 5, only = null } = {}) {
+export function nearest(index, hash, { limit = 5, only = null } = {}) {
   const view = new DataView(index.buffer, index.byteOffset, index.byteLength);
   const out = [];
   for (let o = 0; o + RECORD <= index.byteLength; o += RECORD) {
     const id = view.getUint32(o, true);
     if (only && !only.has(id)) continue;
-    const full = hamming(fp.full, index, o + 4);
-    const art = hamming(fp.art, index, o + 12);
-    out.push({ id, distance: full + art, full, art });
+    const distance = hamming(hash, index, o + 4);
+    out.push({ id, distance, confidence: confidence(distance) });
   }
   return out.sort((a, b) => a.distance - b.distance).slice(0, limit);
 }

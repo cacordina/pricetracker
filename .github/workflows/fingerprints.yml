@@ -1,0 +1,54 @@
+name: Empreintes des cartes (scanner)
+
+# Calcule l'empreinte d'image de chaque carte du catalogue et mesure la précision de la reconnaissance.
+# Rien n'est publié pour l'instant : les résultats sont dans les artefacts et le résumé de l'exécution.
+# Lancé à la main, ou quand le calcul de l'empreinte ou ces scripts changent.
+on:
+  push:
+    paths:
+      - site/lib/fingerprint.js
+      - scripts/build-fingerprints.mjs
+      - scripts/measure-fingerprints.mjs
+      - .github/workflows/fingerprints.yml
+  workflow_dispatch:
+    inputs:
+      sample:
+        description: "Nombre de cartes de l'échantillon de mesure"
+        default: '1500'
+
+permissions:
+  contents: read
+
+jobs:
+  fingerprints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          ref: data
+          path: data
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Installer sharp (décodage des images)
+        run: npm install --no-save sharp@0.33.5
+      # Images des cartes gardées d'une exécution à l'autre : seules les nouvelles cartes sont téléchargées.
+      - uses: actions/cache@v6
+        with:
+          path: .images
+          key: card-images-${{ github.run_id }}
+          restore-keys: card-images-
+      - name: Calculer les empreintes
+        run: node scripts/build-fingerprints.mjs --data data --cache .images --out out
+      - name: Mesurer la précision
+        env:
+          SAMPLE: ${{ inputs.sample || '1500' }}
+        run: |
+          node scripts/measure-fingerprints.mjs --data data --cache .images --out out --sample "$SAMPLE"
+          cat out/measure.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: fingerprints
+          path: out/

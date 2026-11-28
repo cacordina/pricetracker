@@ -1,17 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { grayResize, phash, cardFingerprint, hamming, encodeIndex, nearest } from '../site/lib/fingerprint.js';
+import {
+  HASH_BITS, HASH_BYTES, RECORD, boxDownscale, computeDCT, colorHash, hashToString, hamming, encodeIndex, nearest, confidence,
+} from '../site/lib/fingerprint.js';
 
 /** Image RGBA fabriquée : formes et couleurs tirées d'une graine (une « carte »), plus des retouches. */
 function card(seed, { w = 120, h = 168, light = 0, noise = 0 } = {}) {
   let s = seed;
   const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  const blobs = Array.from({ length: 6 }, () => ({ x: rnd() * w, y: rnd() * h, r: 10 + rnd() * 40, c: [rnd() * 255, rnd() * 255, rnd() * 255] }));
+  const blobs = Array.from({ length: 6 }, () => ({ x: rnd(), y: rnd(), r: 0.08 + rnd() * 0.3, c: [rnd() * 255, rnd() * 255, rnd() * 255] }));
   const px = new Uint8ClampedArray(w * h * 4);
   let n = 12345;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     let c = [40, 40, 60];
-    for (const b of blobs) if ((x - b.x) ** 2 + (y - b.y) ** 2 < b.r ** 2) c = b.c;
+    for (const b of blobs) if ((x / w - b.x) ** 2 + ((y / h - b.y) * 1.4) ** 2 < b.r ** 2) c = b.c;
     n = (n * 1103515245 + 12345) % 2 ** 31;
     const jitter = noise ? ((n / 2 ** 31) - 0.5) * noise : 0;
     const i = (y * w + x) * 4;
@@ -19,36 +21,53 @@ function card(seed, { w = 120, h = 168, light = 0, noise = 0 } = {}) {
   }
   return { px, w, h };
 }
-const fp = ({ px, w, h }) => cardFingerprint(px, w, h);
+const hash = ({ px, w, h }) => colorHash(px, w, h);
 
-test('réduction en niveaux de gris par moyenne de surface', () => {
-  const px = new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255]); // 2×2 : noir, blanc / noir, blanc
-  assert.deepEqual([...grayResize(px, 2, 2, 1, 1)].map(Math.round), [128]);
-  assert.deepEqual([...grayResize(px, 2, 2, 2, 1)].map(Math.round), [0, 255]);
-  assert.deepEqual([...grayResize(px, 2, 2, 1, 1, { x: 0.5, y: 0, w: 0.5, h: 1 })].map(Math.round), [255]);
+// Tests repris de pokemonpocket-v2 (imageHashService.test.ts).
+test('DCT : signal constant, coefficients de fréquence nuls', () => {
+  const dct = computeDCT(new Array(64).fill(100), 8);
+  assert.equal(dct.length, 64);
+  for (let i = 1; i < 64; i++) assert.ok(Math.abs(dct[i]) < 1e-9);
+  // Calcul limité aux basses fréquences : mêmes valeurs que le calcul complet.
+  const pixels = Array.from({ length: 64 }, (_, i) => (i * 37) % 255);
+  const full = computeDCT(pixels, 8);
+  const part = computeDCT(pixels, 8, 3);
+  for (let u = 0; u < 3; u++) for (let v = 0; v < 3; v++) assert.equal(part[u * 8 + v], full[u * 8 + v]);
 });
 
-test('empreinte : stable si la photo est plus claire ou bruitée, différente pour une autre carte', () => {
-  const a = fp(card(7));
-  assert.equal(phash(grayResize(card(7).px, 120, 168, 32, 32)).length, 8);
-  assert.ok(hamming(a.full, fp(card(7, { light: 25 })).full) <= 4, 'plus claire');
-  assert.ok(hamming(a.full, fp(card(7, { noise: 30 })).full) <= 8, 'bruitée');
-  const others = [11, 23, 42, 99].map((s) => hamming(a.full, fp(card(s)).full));
-  assert.ok(Math.min(...others) >= 16, `autres cartes trop proches : ${others}`);
+test('réduction par blocs', () => {
+  const px = new Uint8ClampedArray(2 * 2 * 4).fill(100);
+  assert.deepEqual(boxDownscale(px, 2, 2, 1), { r: [100], g: [100], b: [100] });
+  const mixed = new Uint8ClampedArray([10, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255, 100, 110, 120, 255]);
+  assert.deepEqual(boxDownscale(mixed, 2, 2, 2), { r: [10, 40, 70, 100], g: [20, 50, 80, 110], b: [30, 60, 90, 120] });
+});
+
+test('empreinte : 105 bits, texte au format de pokemonpocket-v2', () => {
+  const h = hash(card(7));
+  assert.equal(HASH_BITS, 105);
+  assert.equal(h.length, HASH_BYTES);
+  const s = hashToString(h);
+  assert.match(s, /^[01]{105}$/);
+});
+
+test('empreinte : stable (clarté, bruit, résolution), différente pour une autre carte', () => {
+  const a = hash(card(7));
+  assert.ok(hamming(a, hash(card(7, { light: 25 }))) <= 6, 'plus claire');
+  assert.ok(hamming(a, hash(card(7, { noise: 30 }))) <= 8, 'bruitée');
+  assert.ok(hamming(a, hash(card(7, { w: 240, h: 336 }))) <= 8, 'autre résolution');
+  assert.ok(hamming(a, hash(card(7, { w: 97, h: 135 }))) <= 10, 'résolution non multiple');
+  const others = [11, 23, 42, 99].map((s) => hamming(a, hash(card(s))));
+  assert.ok(Math.min(...others) >= 20, `autres cartes trop proches : ${others}`);
 });
 
 test('index : la carte se retrouve en tête, filtre par identifiants', () => {
-  const entries = [7, 11, 23, 42].map((seed, i) => ({ id: 1000 + i, ...fp(card(seed)) }));
+  const entries = [7, 11, 23, 42].map((seed, i) => ({ id: 1000 + i, hash: hash(card(seed)) }));
   const index = encodeIndex(entries);
-  assert.equal(index.length, 4 * 20);
-  const found = nearest(index, fp(card(23, { light: 20, noise: 20 })), { limit: 2 });
+  assert.equal(index.length, 4 * RECORD);
+  const found = nearest(index, hash(card(23, { light: 20, noise: 20 })), { limit: 2 });
   assert.equal(found[0].id, 1002);
   assert.ok(found[0].distance < found[1].distance);
-  assert.deepEqual(nearest(index, fp(card(23)), { only: new Set([1000, 1003]) }).map((r) => r.id).sort(), [1000, 1003]);
-});
-
-// Connu : cette première version (réduction par surface fractionnaire) n'est pas assez stable quand la
-// résolution change. À remplacer par l'empreinte couleur de pokemonpocket-v2 (réduction par blocs, éprouvée).
-test('empreinte : stable quand la résolution de la photo change', { todo: 'prototype : remplacer par l’empreinte couleur de pokemonpocket-v2' }, () => {
-  assert.ok(hamming(fp(card(7)).full, fp(card(7, { w: 240, h: 336 })).full) <= 6, 'autre résolution');
+  assert.equal(nearest(index, hash(card(23)))[0].confidence, 100);
+  assert.deepEqual(nearest(index, hash(card(23)), { only: new Set([1000, 1003]) }).map((r) => r.id).sort(), [1000, 1003]);
+  assert.equal(confidence(21), 80);
 });
