@@ -222,9 +222,13 @@ export const SCAN_MIN_GAP = 12;
 // (mesure : la bonne carte en tête 99 % du temps), on peut donc être moins strict.
 export const SCAN_MAX_DISTANCE_WITH_NUMBER = 85;
 
-/** Empreinte de scan (38 octets) d'une image RGBA qui montre une carte, avec ou sans un peu de fond autour. */
-export function scanHash(rgba, width, height) {
-  const card = cropRGBA(rgba, width, height, trimBorders(rgba, width, height));
+/**
+ * Empreinte de scan (38 octets) d'une image RGBA qui montre une carte, avec ou sans un peu de fond autour.
+ * `glare` : neutraliser les reflets (voir maskGlare) avant le calcul.
+ */
+export function scanHash(rgba, width, height, { glare = false } = {}) {
+  let card = cropRGBA(rgba, width, height, trimBorders(rgba, width, height));
+  if (glare) card = { ...card, rgba: maskGlare(card.rgba, card.width, card.height).rgba };
   const art = cropRGBA(card.rgba, card.width, card.height, ART);
   const out = new Uint8Array(SCAN_BYTES);
   out.set(colorHash(card.rgba, card.width, card.height, { freq: 8 }), 0);
@@ -265,4 +269,60 @@ export function nearest(index, hash, { limit = 5, only = null } = {}) {
     if (best.length === limit) worst = best[limit - 1].distance;
   }
   return best.map((r) => ({ ...r, confidence: confidence(r.distance, SCAN_BITS) }));
+}
+
+// ---------- Reflets ----------
+// Un reflet (lumière sur une carte brillante ou une pochette) fait une tache presque blanche, qui change beaucoup
+// l'empreinte. Ses pixels sont remplacés par la couleur moyenne des pixels sans reflet de la même zone de l'image
+// (grille de blocs ; un bloc entièrement couvert prend la couleur de ses voisins).
+
+/** Pixel de reflet : très clair et presque sans couleur. */
+const isGlare = (r, g, b) => Math.min(r, g, b) >= 225 && Math.max(r, g, b) - Math.min(r, g, b) <= 40;
+
+/** Part de l'image couverte de reflets (0 à 1). */
+export function glareShare(rgba, width, height) {
+  let n = 0;
+  for (let i = 0; i < width * height * 4; i += 4) n += isGlare(rgba[i], rgba[i + 1], rgba[i + 2]);
+  return n / (width * height);
+}
+
+/** Copie de l'image avec les reflets bouchés : { rgba, share } (share : part de l'image qui était en reflet). */
+export function maskGlare(rgba, width, height, { cols = 12, rows = 16 } = {}) {
+  const sum = new Float64Array(cols * rows * 3), count = new Uint32Array(cols * rows);
+  const cell = (x, y) => Math.min(rows - 1, Math.floor((y * rows) / height)) * cols + Math.min(cols - 1, Math.floor((x * cols) / width));
+  let glare = 0;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const i = (y * width + x) * 4;
+    if (isGlare(rgba[i], rgba[i + 1], rgba[i + 2])) { glare++; continue; }
+    const c = cell(x, y);
+    sum[c * 3] += rgba[i]; sum[c * 3 + 1] += rgba[i + 1]; sum[c * 3 + 2] += rgba[i + 2]; count[c]++;
+  }
+  if (!glare) return { rgba, share: 0 };
+  // Couleur de chaque bloc ; les blocs sans pixel valable prennent celle de leurs voisins, de proche en proche.
+  const color = new Float64Array(cols * rows * 3), known = new Uint8Array(cols * rows);
+  for (let c = 0; c < cols * rows; c++) if (count[c]) { for (let k = 0; k < 3; k++) color[c * 3 + k] = sum[c * 3 + k] / count[c]; known[c] = 1; }
+  for (let pass = 0; pass < cols + rows && known.includes(0); pass++) {
+    const next = known.slice();
+    for (let c = 0; c < cols * rows; c++) {
+      if (known[c]) continue;
+      const cx = c % cols, cy = Math.floor(c / cols), acc = [0, 0, 0];
+      let m = 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows || !known[ny * cols + nx]) continue;
+        for (let k = 0; k < 3; k++) acc[k] += color[(ny * cols + nx) * 3 + k];
+        m++;
+      }
+      if (m) { for (let k = 0; k < 3; k++) color[c * 3 + k] = acc[k] / m; next[c] = 1; }
+    }
+    known.set(next);
+  }
+  const out = new Uint8ClampedArray(rgba);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const i = (y * width + x) * 4;
+    if (!isGlare(rgba[i], rgba[i + 1], rgba[i + 2])) continue;
+    const c = cell(x, y);
+    out[i] = color[c * 3]; out[i + 1] = color[c * 3 + 1]; out[i + 2] = color[c * 3 + 2];
+  }
+  return { rgba: out, share: glare / (width * height) };
 }

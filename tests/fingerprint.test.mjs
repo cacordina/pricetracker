@@ -107,3 +107,19 @@ test('vignette : insensible à la luminosité', () => {
   assert.ok(thumbnailDistance(ta, thumbnail(b.px, b.w, b.h)) < 0.05);
   assert.ok(thumbnailDistance(ta, thumbnail(c.px, c.w, c.h)) > 0.5);
 });
+
+test('reflets : la tache blanche est bouchée avec la couleur de la zone', async () => {
+  const { maskGlare, glareShare } = await import('../site/lib/fingerprint.js');
+  const a = card(7);
+  const shiny = new Uint8ClampedArray(a.px);
+  // Tache blanche au centre (un dixième de l'image environ).
+  for (let y = 60; y < 110; y++) for (let x = 35; x < 85; x++) { const i = (y * a.w + x) * 4; shiny[i] = shiny[i + 1] = shiny[i + 2] = 250; }
+  assert.ok(glareShare(shiny, a.w, a.h) > 0.1);
+  const fixed = maskGlare(shiny, a.w, a.h);
+  assert.ok(fixed.share > 0.1);
+  assert.equal(glareShare(fixed.rgba, a.w, a.h), 0);
+  const d = (x) => hamming(scanHash(a.px, a.w, a.h), scanHash(x, a.w, a.h), 0, SCAN_BYTES);
+  assert.ok(d(fixed.rgba) < d(shiny), `bouché ${d(fixed.rgba)} contre ${d(shiny)}`);
+  // Sans reflet : image inchangée.
+  assert.equal(maskGlare(a.px, a.w, a.h).rgba, a.px);
+});

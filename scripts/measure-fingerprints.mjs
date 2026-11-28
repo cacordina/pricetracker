@@ -201,10 +201,20 @@ function texture() {
   }
   return sharp(px, { raw: { width: FW, height: FH, channels: 3 } });
 }
-async function scene(buf) {
+/** Reflets : 1 à 3 taches blanches à bord doux sur la carte (5 à 20 % de sa surface). */
+function glareSvg(w, h) {
+  const spots = Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => {
+    const rx = w * (0.1 + rnd() * 0.25), ry = h * (0.05 + rnd() * 0.15);
+    return `<ellipse cx="${w * (0.2 + rnd() * 0.6)}" cy="${h * (0.15 + rnd() * 0.7)}" rx="${rx}" ry="${ry}" fill="url(#g)" transform="rotate(${(rnd() - 0.5) * 60} ${w / 2} ${h / 2})"/>`;
+  }).join('');
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs><radialGradient id="g"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="0.6" stop-color="#fff" stop-opacity="0.95"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>${spots}</svg>`);
+}
+async function scene(buf, { glare = false } = {}) {
   const scale = 0.7 + rnd() * 0.16, angle = (rnd() - 0.5) * 10;
   const cw = Math.round(FW * scale), chh = Math.round(cw * 88 / 63);
-  const card = await sharp(buf).resize(cw, chh, { fit: 'fill' }).rotate(angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+  let cardImg = sharp(buf).resize(cw, chh, { fit: 'fill' });
+  if (glare) cardImg = sharp(await cardImg.png().toBuffer()).composite([{ input: glareSvg(cw, chh) }]);
+  const card = await sharp(await cardImg.png().toBuffer()).rotate(angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
   const m = await sharp(card).metadata();
   const left = Math.round((FW - m.width) / 2 + (rnd() - 0.5) * FW * 0.04), top = Math.round((FH - m.height) / 2 + (rnd() - 0.5) * FH * 0.04);
   let img = (await texture()).composite([{ input: card, left: Math.max(0, left), top: Math.max(0, top) }]);
@@ -213,9 +223,14 @@ async function scene(buf) {
   if (rnd() < 0.5) img = img.blur(0.5 + rnd());
   return sharp(await img.jpeg({ quality: 60 }).toBuffer());
 }
-async function look(img) {
+async function look(img, opts = {}) {
   const { rgba, width, height } = await decode(sharp, await img.png().toBuffer());
-  return lookFrame(index, rgba, width, height).top;
+  return lookFrame(index, rgba, width, height, undefined, opts).top;
+}
+/** Les deux calculs (reflets neutralisés ou non) sur la même image. */
+async function lookBoth(img) {
+  const buf = await img.png().toBuffer();
+  return { off: await look(sharp(buf)), on: await look(sharp(buf), { glare: true }) };
 }
 const camPos = [];
 for (const r of sample.slice(0, 600)) camPos.push({ id: r.id, top: await look(await scene(await readFile(join(values.cache, fileOf(r.id))))) });
@@ -225,6 +240,27 @@ for (const box of boxes) {
   try { camNeg.push({ kind: 'produit scellé', top: await look(await scene(await readFile(join(values.cache, `box-${box}.jpg`)))) }); } catch { /* absente */ }
 }
 console.log(`scènes caméra : ${camPos.length} cartes, ${camNeg.length} sans carte (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+// Reflets : scènes avec reflets, scènes sans, et scènes sans carte ; empreinte avec et sans neutralisation.
+const glarePos = [], plainPos = [], glareNeg = [];
+for (const r of sample.slice(0, 400)) {
+  const buf = await readFile(join(values.cache, fileOf(r.id)));
+  glarePos.push({ id: r.id, ...(await lookBoth(await scene(buf, { glare: true }))) });
+  plainPos.push({ id: r.id, ...(await lookBoth(await scene(buf))) });
+}
+for (let k = 0; k < 100; k++) glareNeg.push({ kind: 'table seule', ...(await lookBoth(await texture())) });
+for (const box of boxes) {
+  try { glareNeg.push({ kind: 'produit scellé', ...(await lookBoth(await scene(await readFile(join(values.cache, `box-${box}.jpg`)), { glare: rnd() < 0.5 }))) }); } catch { /* absente */ }
+}
+console.log(`reflets : ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+const glareRows = [];
+for (const rule of [{ maxDistance: 70, minGap: 12 }, { maxDistance: 75, minGap: 16 }, { maxDistance: 80, minGap: 20 }]) {
+  for (const mode of ['off', 'on']) {
+    const rate = (list) => list.filter((q) => acceptMatch(q[mode], rule) && q[mode].slice(0, 3).some((r) => r.id === q.id)).length / list.length;
+    const fp = (kind) => { const l = glareNeg.filter((q) => q.kind === kind); return l.length ? l.filter((q) => acceptMatch(q[mode], rule)).length / l.length : null; };
+    glareRows.push({ rule, mode, glare: rate(glarePos), plain: rate(plainPos), top1: glarePos.filter((q) => q[mode][0]?.id === q.id).length / glarePos.length, table: fp('table seule'), box: fp('produit scellé') });
+  }
+}
+
 const camGrid = [];
 for (const maxDistance of [70, 75, 80, 85, 90, 95, 100]) {
   for (const minGap of [12, 16, 20, 24, 28]) {
@@ -250,5 +286,9 @@ lines.push('## Scènes caméra (pipeline du téléphone)', '',
   `Cartes posées dans le cadre sur fond texturé : ${camPos.length} ; bonne carte en tête ${pct(camTop1)}, parmi les 3 premières ${pct(camTop3)}. Scènes sans carte : ${camNeg.length}.`, '',
   '| distance ≤ | écart ≥ | reconnues | bonne parmi les 3 | table seule | produit scellé |', '|---:|---:|---:|---:|---:|---:|',
   ...camGrid.map((g) => `| ${g.maxDistance} | ${g.minGap} | ${pct(g.accepted)} | ${pct(g.right)} | ${pct(g.fp['table seule'])} | ${pct(g.fp['produit scellé'])} |`), '');
+lines.push('## Reflets', '',
+  `Scènes caméra avec reflets (${glarePos.length}) et sans (${plainPos.length}) ; scènes sans carte : ${glareNeg.length}. reconnues : acceptée et bonne carte parmi les 3.`, '',
+  '| règle | reflets neutralisés | reconnues avec reflets | en tête avec reflets | reconnues sans reflet | table seule | produit scellé |', '|---|---|---:|---:|---:|---:|---:|',
+  ...glareRows.map((g) => `| ≤ ${g.rule.maxDistance}, écart ≥ ${g.rule.minGap} | ${g.mode === 'on' ? 'oui' : 'non'} | ${pct(g.glare)} | ${pct(g.top1)} | ${pct(g.plain)} | ${pct(g.table)} | ${pct(g.box)} |`), '');
 await writeFile(join(values.out, 'measure.md'), lines.join('\n'));
 console.log(lines.join('\n'));

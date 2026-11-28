@@ -214,13 +214,14 @@ export const CROPS = [0.02, 0, -0.02, -0.04].map((m) => ({ x: GUIDE.x - m, y: GU
 
 /**
  * Image de l'aperçu (RGBA) → { hash, top } du découpage dont la carte la plus proche l'est le plus (`top` :
- * [{ id, distance }], la plus proche d'abord). `crops` : découpages à essayer ([{ x, y, w, h }] en fractions).
+ * [{ id, distance }], la plus proche d'abord). `crops` : découpages à essayer ([{ x, y, w, h }] en fractions) ;
+ * `glare` : neutraliser les reflets (voir maskGlare).
  */
-export function lookFrame(index, rgba, width, height, crops = CROPS) {
+export function lookFrame(index, rgba, width, height, crops = CROPS, { glare = false } = {}) {
   let best = null;
   for (const rect of crops) {
     const part = cropRGBA(rgba, width, height, rect);
-    const hash = scanHash(part.rgba, part.width, part.height);
+    const hash = scanHash(part.rgba, part.width, part.height, { glare });
     const top = nearest(index, hash, { limit: 8 });
     if (!best || (top[0] && (!best.top[0] || top[0].distance < best.top[0].distance))) best = { hash, top };
   }
