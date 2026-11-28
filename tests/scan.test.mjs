@@ -130,7 +130,7 @@ test('cumul : deux lectures vides de suite effacent tout', async () => {
   assert.deepEqual(ids(ev.add(parseScan('212/1B7', catalog))), []);
 });
 
-test('reconnaissance par l’image : même carte en tête sur 3 des 4 dernières images', async () => {
+test('reconnaissance par l’image : même carte en tête sur 3 des 5 dernières images', async () => {
   const { createImageTracker, preferRead, acceptMatch } = await import('../site/lib/scan.js');
   const five = (d1, d5) => [{ id: 1, distance: d1 }, { id: 2, distance: d1 }, { id: 3, distance: d5 }, { id: 4, distance: d5 }, { id: 5, distance: d5 }];
   assert.equal(acceptMatch(five(30, 70), { maxDistance: 60, minGap: 15 }), true, 'deux rééditions à égalité, puis rien');
@@ -150,11 +150,18 @@ test('reconnaissance par l’image : même carte en tête sur 3 des 4 dernières
   t.reset();
   t.push(top(1)); t.push(top(1));
   assert.deepEqual(t.push(top(1)).ids[0], 1);
-  // Carte retirée (4 images sans carte) puis remise : signalée de nouveau.
-  for (let i = 0; i < 4; i++) t.push([]);
+  // Carte retirée (5 images sans carte) puis remise : signalée de nouveau.
+  for (let i = 0; i < 5; i++) t.push([]);
   t.push(top(1)); t.push(top(1));
   assert.ok(t.push(top(1)));
 
+  // Un reflet qui passe fait rater une image sur deux : la carte est quand même reconnue (3 sur 5).
+  const shiny = createImageTracker({ maxDistance: 50 });
+  assert.equal(shiny.push(top(1)), null);
+  assert.equal(shiny.push([]), null);
+  assert.equal(shiny.push(top(1)), null);
+  assert.equal(shiny.push([]), null);
+  assert.deepEqual(shiny.push(top(1))?.ids[0], 1);
   // Rien ne se détache (toutes les cartes à égale distance) : pas de carte reconnue.
   const flat = createImageTracker({ maxDistance: 50, minGap: 10 });
   const same = [1, 2, 3, 4, 5].map((id) => ({ id, distance: 40 + id }));

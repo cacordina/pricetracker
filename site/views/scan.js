@@ -8,7 +8,7 @@ import {
   parseScan, mergeScans, createTracker, createEvidence, createImageTracker, preferRead, acceptMatch, checkWithNumber, lookFrame, GUIDE, CROPS,
 } from '../lib/scan.js';
 import { prepare, readCardPasses, PASSES } from '../lib/ocr.js';
-import { nearest, SCAN_MAX_DISTANCE, SCAN_MIN_GAP, SCAN_MAX_DISTANCE_WITH_NUMBER } from '../lib/fingerprint.js';
+import { nearest, cropRGBA, glareShare, SCAN_MAX_DISTANCE, SCAN_MIN_GAP, SCAN_MAX_DISTANCE_WITH_NUMBER } from '../lib/fingerprint.js';
 import { loadFingerprints } from '../lib/data.js';
 import { displayName, priceOf } from '../lib/model.js';
 import { formatEuro } from '../lib/format.js';
@@ -16,6 +16,7 @@ import { cardImg, esc } from '../lib/ui.js';
 
 const CARD_RATIO = 63 / 88;
 
+const GLARE_HINT = 0.04; // part du cadre en reflet au-delà de laquelle on conseille d'incliner la carte
 const FRAME_WIDTH = 375; // largeur de l'aperçu analysé : la carte y fait environ 300 px (le catalogue : images de 200 à 250 px)
 const ALTERNATIVES = 2; // autres possibilités affichées sous la carte reconnue
 
@@ -45,7 +46,8 @@ function frameCanvas(source, width = null, rect = null) {
 function lookImage(index, source, crops) {
   const canvas = frameCanvas(source, FRAME_WIDTH);
   const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-  return lookFrame(index, data, canvas.width, canvas.height, crops);
+  const guide = cropRGBA(data, canvas.width, canvas.height, GUIDE);
+  return { ...lookFrame(index, data, canvas.width, canvas.height, crops), glare: glareShare(guide.rgba, guide.width, guide.height) };
 }
 
 /** Les cartes `cards` (qui portent le numéro lu) classées par ressemblance avec l'empreinte : [{ id, distance }]. */
@@ -178,9 +180,11 @@ export async function render(root, { catalog, snapshot, store, param }) {
     if (paused || document.hidden || !stream || video.readyState < 2) return wait(300);
     try {
       const t0 = performance.now();
-      const { hash, top } = lookImage(index, video, CROPS);
+      const { hash, top, glare } = lookImage(index, video, CROPS);
       lastHash = hash;
-      if (diag) showDiag(top, performance.now() - t0);
+      if (diag) showDiag(top, performance.now() - t0, glare);
+      // Grand reflet sur la carte : en l'inclinant un peu, le reflet se déplace et l'image suivante passe.
+      else if (!paused) pill.textContent = glare > GLARE_HINT ? 'Reflet sur la carte : inclinez-la un peu' : lastNumber ? pill.textContent : 'Recherche d’une carte…';
       // Numéro déjà lu : l'image n'a plus qu'à choisir parmi les cartes qui le portent, avec un seuil plus souple.
       const ranked = lastRead.length ? rankByImage(index, hash, lastRead) : [];
       if (ranked[0] && ranked[0].distance <= SCAN_MAX_DISTANCE_WITH_NUMBER) {
@@ -199,14 +203,14 @@ export async function render(root, { catalog, snapshot, store, param }) {
 
   // Mode diagnostic : distance de la carte la plus proche, écart avec la 5e, durée d'analyse et cadence.
   let frames = [];
-  function showDiag(top, ms) {
+  function showDiag(top, ms, glare = 0) {
     const now = performance.now();
     frames = [...frames.filter((t) => now - t < 2000), now];
     const d = top[0]?.distance ?? '—';
     const gap = top.length > 4 ? top[4].distance - top[0].distance : '—';
     const ok = acceptMatch(top, RULE) ? '✓' : '✗';
     const card = top[0] ? catalog.byId.get(top[0].id) : null;
-    pill.textContent = `${ok} d ${d}/${SCAN_MAX_DISTANCE} · écart ${gap}/${SCAN_MIN_GAP} · ${Math.round(ms)} ms · ${(frames.length / 2).toFixed(1)} img/s${card ? ` · ${card.s} ${card.n}` : ''}`;
+    pill.textContent = `${ok} d ${d}/${SCAN_MAX_DISTANCE} · écart ${gap}/${SCAN_MIN_GAP} · ${Math.round(ms)} ms · ${(frames.length / 2).toFixed(1)} img/s · reflet ${Math.round(glare * 100)} %${card ? ` · ${card.s} ${card.n}` : ''}`;
   }
 
   const cardsOf = (ids) => ids.map((id) => catalog.byId.get(id)).filter(Boolean);

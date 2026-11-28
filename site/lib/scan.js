@@ -146,11 +146,12 @@ export function createTracker({ missesToReset = 3 } = {}) {
 /**
  * Reconnaissance par l'image (empreinte de scan), image après image. `push(top)` reçoit les cartes les plus proches
  * de l'image de la caméra ([{ id, distance }], la plus proche d'abord) et renvoie { ids } quand une carte vient d'être
- * reconnue : la même carte en tête, assez proche, sur `need` des `frames` dernières images. `ids` : cette carte, puis
+ * reconnue : la même carte en tête, assez proche, sur `need` des `frames` dernières images (3 sur 5 : un reflet qui
+ * passe ou un léger flou peuvent faire rater quelques images). `ids` : cette carte, puis
  * les suivantes de la dernière image (les autres possibilités). Sinon null. Une carte signalée ne l'est plus tant
  * qu'elle reste en tête ; reset() pour la carte suivante.
  */
-export function createImageTracker({ frames = 4, need = 3, ...rule }) {
+export function createImageTracker({ frames = 5, need = 3, ...rule }) {
   let recent = [];
   let reported = null;
   return {

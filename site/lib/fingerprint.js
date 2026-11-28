@@ -215,7 +215,7 @@ export const SCAN_BITS = 189 + 105;
 // Règle d'acceptation du scanner (voir acceptMatch dans scan.js) : distance maximale de la carte reconnue, et écart
 // minimal avec la 5e candidate. Réglées avec scripts/measure-fingerprints.mjs (photos simulées et images qui ne sont
 // pas des cartes : 88 % des vraies cartes acceptées à chaque image, la bonne parmi les 3 proposées 99 % du temps, aucune
-// fausse reconnaissance) ; le scanner exige en plus le même résultat sur 3 des 4 dernières images.
+// fausse reconnaissance) ; le scanner exige en plus le même résultat sur 3 des 5 dernières images.
 export const SCAN_MAX_DISTANCE = 70;
 export const SCAN_MIN_GAP = 12;
 // Distance maximale quand le numéro a été lu sur la carte : on ne choisit plus que parmi les quelques cartes qui le portent
